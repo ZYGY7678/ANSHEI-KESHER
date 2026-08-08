@@ -70,6 +70,39 @@
   td:nth-child(2), th:nth-child(2) { text-align: center; }
   td:last-child, th:last-child { text-align: left; }
   .note { font-size: 12px; color: #888; margin-top: 6px; }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+    font-size: 14px;
+  }
+  .settings-row select {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+  }
+  .pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .pager button {
+    display: inline-block;
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+  .pager button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .pager span {
+    font-size: 13px;
+    color: #555;
+  }
 </style>
 </head>
 <body>
@@ -79,6 +112,26 @@
 
   <input type="file" id="fileInput" accept=".vcf,.txt">
   <div id="status"></div>
+
+  <div class="settings-row" id="pageSizeChoiceRow" style="display:none;">
+    <label for="pageSizeChoiceSelect">כמות אנשי קשר בעמוד תצוגה:</label>
+    <select id="pageSizeChoiceSelect">
+      <option value="50" selected>50</option>
+      <option value="100">100</option>
+      <option value="150">150</option>
+      <option value="200">200</option>
+    </select>
+  </div>
+
+  <div class="settings-row" id="pageSizeRow" style="display:none;">
+    <label for="pageSizeSelect">גודל דף לקובץ הוורד:</label>
+    <select id="pageSizeSelect">
+      <option value="A4">A4</option>
+      <option value="Letter">Letter</option>
+      <option value="A5">A5</option>
+    </select>
+  </div>
+
   <button id="downloadBtn">הורד קובץ וורד</button>
 
   <div id="previewWrap"></div>
@@ -87,6 +140,8 @@
 
 <script>
 let contacts = [];
+let currentPage = 0;
+let PAGE_SIZE = 50;
 
 function decodeQP(str) {
   try {
@@ -220,9 +275,13 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
         if (!text) text = candidate;
       }
       contacts = parseVcf(text);
+      currentPage = 0;
       document.getElementById('status').textContent = 'נמצאו ' + contacts.length + ' אנשי קשר';
       renderPreview();
-      document.getElementById('downloadBtn').style.display = contacts.length ? 'inline-block' : 'none';
+      const hasContacts = contacts.length > 0;
+      document.getElementById('downloadBtn').style.display = hasContacts ? 'inline-block' : 'none';
+      document.getElementById('pageSizeRow').style.display = hasContacts ? 'flex' : 'none';
+      document.getElementById('pageSizeChoiceRow').style.display = hasContacts ? 'flex' : 'none';
     } catch (err) {
       document.getElementById('status').textContent = 'שגיאה בקריאת הקובץ';
     }
@@ -230,23 +289,49 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
   reader.readAsArrayBuffer(file);
 });
 
+document.getElementById('pageSizeChoiceSelect').addEventListener('change', function () {
+  PAGE_SIZE = parseInt(this.value, 10);
+  currentPage = 0;
+  renderPreview();
+});
+
 function renderPreview() {
   const el = document.getElementById('previewWrap');
   if (!contacts.length) { el.innerHTML = ''; return; }
-  const rows = contacts.slice(0, 10).map(c =>
+
+  const totalPages = Math.ceil(contacts.length / PAGE_SIZE);
+  if (currentPage >= totalPages) currentPage = totalPages - 1;
+  if (currentPage < 0) currentPage = 0;
+
+  const start = currentPage * PAGE_SIZE;
+  const pageItems = contacts.slice(start, start + PAGE_SIZE);
+
+  const rows = pageItems.map(c =>
     '<tr>' +
     '<td>' + escapeHtml(c.name) + '</td>' +
     '<td>' + escapeHtml(c.tels.join(', ')) + '</td>' +
     '<td>' + escapeHtml(c.extras.join(', ') || '—') + '</td>' +
     '</tr>'
   ).join('');
+
   el.innerHTML =
     '<table><tr><th>שם</th><th>מספר</th><th>פרטים נוספים</th></tr>' + rows + '</table>' +
-    '<p class="note">מוצגים עד 10 מתוך ' + contacts.length + '</p>';
+    '<div class="pager">' +
+      '<button id="prevPageBtn" ' + (currentPage === 0 ? 'disabled' : '') + '>הקודם</button>' +
+      '<span>עמוד ' + (currentPage + 1) + ' מתוך ' + totalPages + ' (' + contacts.length + ' אנשי קשר)</span>' +
+      '<button id="nextPageBtn" ' + (currentPage >= totalPages - 1 ? 'disabled' : '') + '>הבא</button>' +
+    '</div>';
+
+  const prevBtn = document.getElementById('prevPageBtn');
+  const nextBtn = document.getElementById('nextPageBtn');
+  if (prevBtn) prevBtn.addEventListener('click', () => { currentPage--; renderPreview(); });
+  if (nextBtn) nextBtn.addEventListener('click', () => { currentPage++; renderPreview(); });
 }
 
 document.getElementById('downloadBtn').addEventListener('click', function () {
   if (!contacts.length) return;
+  const pageSize = document.getElementById('pageSizeSelect').value;
+
   let rowsHtml = contacts.map(c =>
     '<tr>' +
     '<td style="border:1px solid #999; padding:6px; text-align:right; font-weight:bold; width:35%;">' + escapeHtml(c.name) + '</td>' +
@@ -256,10 +341,21 @@ document.getElementById('downloadBtn').addEventListener('click', function () {
   ).join('');
 
   const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
-    '<head><meta charset="utf-8"><style>body{font-family:Arial;direction:rtl;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #999;padding:6px;}</style></head>' +
-    '<body dir="rtl"><h2 style="text-align:right;">רשימת אנשי קשר</h2>' +
-    '<table><tr><th style="text-align:right;">שם</th><th style="text-align:center;">מספר</th><th style="text-align:left;">פרטים נוספים</th></tr>' +
-    rowsHtml + '</table></body></html>';
+    '<head><meta charset="utf-8">' +
+    '<style>' +
+    '@page { size: ' + pageSize + '; margin: 2cm; }' +
+    'body { font-family: Arial; direction: rtl; }' +
+    '.wrap { width: 100%; text-align: center; }' +
+    'table { border-collapse: collapse; width: 90%; margin: 0 auto; }' +
+    'th, td { border: 1px solid #999; padding: 6px; }' +
+    '</style>' +
+    '</head>' +
+    '<body dir="rtl">' +
+    '<h2 style="text-align:center;">רשימת אנשי קשר</h2>' +
+    '<div class="wrap"><table>' +
+    '<tr><th style="text-align:right;">שם</th><th style="text-align:center;">מספר</th><th style="text-align:left;">פרטים נוספים</th></tr>' +
+    rowsHtml +
+    '</table></div></body></html>';
 
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
