@@ -66,9 +66,9 @@
     padding: 6px 8px;
   }
   th { background: #f0f0f0; }
-  td:last-child, th:last-child { text-align: left; font-weight: bold; }
-  td:first-child, th:first-child { text-align: right; }
+  td:first-child, th:first-child { text-align: right; font-weight: bold; }
   td:nth-child(2), th:nth-child(2) { text-align: center; }
+  td:last-child, th:last-child { text-align: left; }
   .note { font-size: 12px; color: #888; margin-top: 6px; }
 </style>
 </head>
@@ -235,13 +235,13 @@ function renderPreview() {
   if (!contacts.length) { el.innerHTML = ''; return; }
   const rows = contacts.slice(0, 10).map(c =>
     '<tr>' +
-    '<td>' + escapeHtml(c.extras.join(', ') || '—') + '</td>' +
-    '<td>' + escapeHtml(c.tels.join(', ')) + '</td>' +
     '<td>' + escapeHtml(c.name) + '</td>' +
+    '<td>' + escapeHtml(c.tels.join(', ')) + '</td>' +
+    '<td>' + escapeHtml(c.extras.join(', ') || '—') + '</td>' +
     '</tr>'
   ).join('');
   el.innerHTML =
-    '<table><tr><th>פרטים נוספים</th><th>מספר</th><th>שם</th></tr>' + rows + '</table>' +
+    '<table><tr><th>שם</th><th>מספר</th><th>פרטים נוספים</th></tr>' + rows + '</table>' +
     '<p class="note">מוצגים עד 10 מתוך ' + contacts.length + '</p>';
 }
 
@@ -249,16 +249,16 @@ document.getElementById('downloadBtn').addEventListener('click', function () {
   if (!contacts.length) return;
   let rowsHtml = contacts.map(c =>
     '<tr>' +
-    '<td style="border:1px solid #999; padding:6px; text-align:right; width:35%;">' + escapeHtml(c.extras.join('<br/>') || '') + '</td>' +
+    '<td style="border:1px solid #999; padding:6px; text-align:right; font-weight:bold; width:35%;">' + escapeHtml(c.name) + '</td>' +
     '<td style="border:1px solid #999; padding:6px; text-align:center; width:25%;">' + escapeHtml(c.tels.join('<br/>')) + '</td>' +
-    '<td style="border:1px solid #999; padding:6px; text-align:left; font-weight:bold; width:40%;">' + escapeHtml(c.name) + '</td>' +
+    '<td style="border:1px solid #999; padding:6px; text-align:left; width:40%;">' + escapeHtml(c.extras.join('<br/>') || '') + '</td>' +
     '</tr>'
   ).join('');
 
   const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="utf-8"><style>body{font-family:Arial;direction:rtl;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #999;padding:6px;}</style></head>' +
     '<body dir="rtl"><h2 style="text-align:right;">רשימת אנשי קשר</h2>' +
-    '<table><tr><th style="text-align:right;">פרטים נוספים</th><th style="text-align:center;">מספר</th><th style="text-align:left;">שם</th></tr>' +
+    '<table><tr><th style="text-align:right;">שם</th><th style="text-align:center;">מספר</th><th style="text-align:left;">פרטים נוספים</th></tr>' +
     rowsHtml + '</table></body></html>';
 
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
