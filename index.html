@@ -344,15 +344,15 @@ document.getElementById('downloadBtn').addEventListener('click', function () {
     '<head><meta charset="utf-8">' +
     '<style>' +
     '@page { size: ' + pageSize + '; margin: 2cm; }' +
-    'body { font-family: Arial; direction: rtl; }' +
+    'body { font-family: Arial; direction: rtl; text-align: right; }' +
     '.wrap { width: 100%; text-align: center; }' +
-    'table { border-collapse: collapse; width: 90%; margin: 0 auto; }' +
+    'table { border-collapse: collapse; }' +
     'th, td { border: 1px solid #999; padding: 6px; }' +
     '</style>' +
     '</head>' +
     '<body dir="rtl">' +
     '<h2 style="text-align:center;">רשימת אנשי קשר</h2>' +
-    '<div class="wrap"><table>' +
+    '<div class="wrap"><table align="center" dir="rtl" style="width:90%; margin:0 auto; border-collapse:collapse;">' +
     '<tr><th style="text-align:right;">שם</th><th style="text-align:center;">מספר</th><th style="text-align:left;">פרטים נוספים</th></tr>' +
     rowsHtml +
     '</table></div></body></html>';
