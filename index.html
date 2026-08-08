@@ -121,8 +121,9 @@ function parseVcf(text) {
   const cards = text.split(/BEGIN:VCARD/i).slice(1);
   const out = [];
   cards.forEach(block => {
-    let lines = block.split(/\r?\n/).filter(l => l.trim().length > 0);
+    let lines = block.split(/\r?\n/);
     lines = unfoldQPLines(lines);
+    lines = lines.filter(l => l.trim().length > 0);
     let first = '', last = '', fullName = '', tels = [], extras = [];
     lines.forEach(raw => {
       let line = raw;
