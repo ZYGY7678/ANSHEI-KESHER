@@ -333,14 +333,22 @@ document.getElementById('downloadBtn').addEventListener('click', function () {
   const pageSize = document.getElementById('pageSizeSelect').value;
   const pageWidths = { A4: 620, Letter: 600, A5: 420 };
   const tableWidthPx = pageWidths[pageSize] || 600;
+  const colWidthPx = Math.floor(tableWidthPx / 3);
 
   let rowsHtml = contacts.map(c =>
     '<tr>' +
-    '<td style="border:1px solid #999; padding:6px; text-align:right; font-weight:bold; width:35%;">' + escapeHtml(c.name) + '</td>' +
-    '<td style="border:1px solid #999; padding:6px; text-align:center; width:25%;">' + c.tels.map(escapeHtml).join('<br/>') + '</td>' +
-    '<td style="border:1px solid #999; padding:6px; text-align:left; width:40%;">' + (c.extras.length ? c.extras.map(escapeHtml).join('<br/>') : '') + '</td>' +
+    '<td style="border:1px solid #999; padding:6px; text-align:right; font-weight:bold;">' + escapeHtml(c.name) + '</td>' +
+    '<td style="border:1px solid #999; padding:6px; text-align:center;">' + c.tels.map(escapeHtml).join('<br/>') + '</td>' +
+    '<td style="border:1px solid #999; padding:6px; text-align:left;">' + (c.extras.length ? c.extras.map(escapeHtml).join('<br/>') : '') + '</td>' +
     '</tr>'
   ).join('');
+
+  const colgroup =
+    '<colgroup>' +
+    '<col style="width:' + colWidthPx + 'px;">' +
+    '<col style="width:' + colWidthPx + 'px;">' +
+    '<col style="width:' + colWidthPx + 'px;">' +
+    '</colgroup>';
 
   const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
     '<head><meta charset="utf-8">' +
@@ -353,7 +361,8 @@ document.getElementById('downloadBtn').addEventListener('click', function () {
     '<body dir="rtl">' +
     '<h2 style="text-align:center;">רשימת אנשי קשר</h2>' +
     '<div align="center" style="text-align:center;">' +
-    '<table align="center" dir="rtl" style="border-collapse:collapse; width:' + tableWidthPx + 'px; margin-left:auto; margin-right:auto;">' +
+    '<table align="center" dir="rtl" width="' + tableWidthPx + '" style="border-collapse:collapse; width:' + tableWidthPx + 'px; margin-left:auto; margin-right:auto; table-layout:fixed;">' +
+    colgroup +
     '<tr><th style="text-align:right;">שם</th><th style="text-align:center;">מספר</th><th style="text-align:left;">פרטים נוספים</th></tr>' +
     rowsHtml +
     '</table></div></body></html>';
