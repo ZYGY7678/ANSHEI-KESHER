@@ -90,15 +90,39 @@ let contacts = [];
 
 function decodeQP(str) {
   try {
-    return str.replace(/=([0-9A-Fa-f]{2})/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
+    // Collect raw bytes first (QP can split multi-byte UTF-8 chars across =XX groups),
+    // then decode the whole byte sequence as UTF-8 at once.
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+      if (str[i] === '=' && /[0-9A-Fa-f]{2}/.test(str.substr(i + 1, 2))) {
+        bytes.push(parseInt(str.substr(i + 1, 2), 16));
+        i += 2;
+      } else {
+        bytes.push(str.charCodeAt(i));
+      }
+    }
+    return new TextDecoder('utf-8').decode(new Uint8Array(bytes));
   } catch (e) { return str; }
+}
+
+function unfoldQPLines(lines) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    while (/ENCODING=QUOTED-PRINTABLE/i.test(line) && line.endsWith('=') && i + 1 < lines.length) {
+      line = line.slice(0, -1) + lines[++i];
+    }
+    out.push(line);
+  }
+  return out;
 }
 
 function parseVcf(text) {
   const cards = text.split(/BEGIN:VCARD/i).slice(1);
   const out = [];
   cards.forEach(block => {
-    const lines = block.split(/\r?\n/).filter(l => l.trim().length > 0);
+    let lines = block.split(/\r?\n/).filter(l => l.trim().length > 0);
+    lines = unfoldQPLines(lines);
     let first = '', last = '', fullName = '', tels = [], extras = [];
     lines.forEach(raw => {
       let line = raw;
@@ -142,8 +166,9 @@ function escapeHtml(s) {
 }
 
 function looksGarbled(str) {
-  // heuristic: lots of replacement chars or control-range junk = wrong encoding
-  const bad = (str.match(/\uFFFD|[\u0080-\u009F]/g) || []).length;
+  // heuristic: lots of replacement chars, null bytes, or control-range junk = wrong encoding
+  const sample = str.slice(0, 3000);
+  const bad = (sample.match(/\uFFFD|\u0000|[\u0080-\u009F]/g) || []).length;
   return bad > 3;
 }
 
@@ -155,6 +180,24 @@ function decodeWithEncoding(buffer, encoding) {
   }
 }
 
+function detectEncodingFromBOM(buffer) {
+  const bytes = new Uint8Array(buffer.slice(0, 4));
+  if (bytes[0] === 0xFF && bytes[1] === 0xFE) return 'utf-16le';
+  if (bytes[0] === 0xFE && bytes[1] === 0xFF) return 'utf-16be';
+  if (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) return 'utf-8';
+  // heuristic: vCard files are ASCII-heavy for keys like BEGIN/VERSION;
+  // if every other byte is 0x00, it's UTF-16 without BOM
+  const sample = new Uint8Array(buffer.slice(0, 200));
+  let zeroEven = 0, zeroOdd = 0;
+  for (let i = 0; i < sample.length - 1; i += 2) {
+    if (sample[i + 1] === 0) zeroOdd++;
+    if (sample[i] === 0) zeroEven++;
+  }
+  if (zeroOdd > sample.length / 4) return 'utf-16le';
+  if (zeroEven > sample.length / 4) return 'utf-16be';
+  return null;
+}
+
 document.getElementById('fileInput').addEventListener('change', function (e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -162,7 +205,10 @@ document.getElementById('fileInput').addEventListener('change', function (e) {
   reader.onload = function (ev) {
     try {
       const buffer = ev.target.result;
-      const encodingsToTry = ['utf-8', 'windows-1255', 'iso-8859-8'];
+      const bomEncoding = detectEncodingFromBOM(buffer);
+      const encodingsToTry = bomEncoding
+        ? [bomEncoding, 'utf-8', 'windows-1255', 'iso-8859-8']
+        : ['utf-8', 'windows-1255', 'iso-8859-8', 'utf-16le', 'utf-16be'];
       let text = null;
       for (const enc of encodingsToTry) {
         const candidate = decodeWithEncoding(buffer, enc);
