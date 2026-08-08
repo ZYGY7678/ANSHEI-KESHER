@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>המרת אנשי קשר לקובץ וורד</title>
+<style>
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f2f2f0;
+    color: #222;
+    margin: 0;
+    padding: 24px;
+    direction: rtl;
+  }
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  }
+  h1 {
+    font-size: 22px;
+    margin-top: 0;
+  }
+  p.desc {
+    color: #555;
+    font-size: 14px;
+  }
+  input[type=file] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    background: #fafafa;
+  }
+  #status {
+    font-size: 14px;
+    color: #444;
+    margin-bottom: 10px;
+    min-height: 20px;
+  }
+  button {
+    background: #2d6cdf;
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    display: none;
+  }
+  button:hover { background: #1f57c0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 16px;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 6px 8px;
+  }
+  th { background: #f0f0f0; }
+  td:last-child, th:last-child { text-align: left; font-weight: bold; }
+  td:first-child, th:first-child { text-align: right; }
+  td:nth-child(2), th:nth-child(2) { text-align: center; }
+  .note { font-size: 12px; color: #888; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>המרת גיבוי אנשי קשר לקובץ וורד</h1>
+  <p class="desc">בחר קובץ גיבוי אנשי קשר (vcf) שיוצא מאנדרואיד או מנוקיה, ותקבל קובץ וורד מסודר: שם מימין, מספר באמצע, פרטים נוספים משמאל.</p>
+
+  <input type="file" id="fileInput" accept=".vcf,.txt">
+  <div id="status"></div>
+  <button id="downloadBtn">הורד קובץ וורד</button>
+
+  <div id="previewWrap"></div>
+  <p class="note">הקובץ נשאר במחשב שלך בלבד — אין העלאה לשרת.</p>
+</div>
+
+<script>
+let contacts = [];
+
+function decodeQP(str) {
+  try {
+    return str.replace(/=([0-9A-Fa-f]{2})/g, (m, h) => String.fromCharCode(parseInt(h, 16)));
+  } catch (e) { return str; }
+}
+
+function parseVcf(text) {
+  const cards = text.split(/BEGIN:VCARD/i).slice(1);
+  const out = [];
+  cards.forEach(block => {
+    const lines = block.split(/\r?\n/).filter(l => l.trim().length > 0);
+    let first = '', last = '', fullName = '', tels = [], extras = [];
+    lines.forEach(raw => {
+      let line = raw;
+      const isQP = /ENCODING=QUOTED-PRINTABLE/i.test(line);
+      const colonIdx = line.indexOf(':');
+      if (colonIdx === -1) return;
+      let key = line.substring(0, colonIdx);
+      let val = line.substring(colonIdx + 1);
+      if (isQP) val = decodeQP(val);
+      const keyUp = key.toUpperCase();
+      if (keyUp.startsWith('N;') || keyUp === 'N') {
+        const parts = val.split(';');
+        last = (last || parts[0] || '').trim();
+        first = (first || parts[1] || '').trim();
+      } else if (keyUp.startsWith('FN')) {
+        fullName = val.trim();
+      } else if (keyUp.startsWith('TEL')) {
+        tels.push(val.trim());
+      } else if (keyUp.startsWith('EMAIL')) {
+        extras.push('אימייל: ' + val.trim());
+      } else if (keyUp.startsWith('ADR')) {
+        const cleaned = val.split(';').filter(Boolean).join(' ').trim();
+        if (cleaned) extras.push('כתובת: ' + cleaned);
+      } else if (keyUp.startsWith('ORG')) {
+        extras.push('ארגון: ' + val.trim());
+      } else if (keyUp.startsWith('NOTE')) {
+        extras.push('הערה: ' + val.trim());
+      } else if (keyUp.startsWith('BDAY')) {
+        extras.push('יום הולדת: ' + val.trim());
+      }
+    });
+    let name = (first || last) ? (first + ' ' + last).trim() : fullName;
+    if (!name) name = fullName || '(ללא שם)';
+    out.push({ name, tels: tels.length ? tels : ['—'], extras });
+  });
+  return out;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+document.getElementById('fileInput').addEventListener('change', function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function (ev) {
+    try {
+      contacts = parseVcf(ev.target.result);
+      document.getElementById('status').textContent = 'נמצאו ' + contacts.length + ' אנשי קשר';
+      renderPreview();
+      document.getElementById('downloadBtn').style.display = contacts.length ? 'inline-block' : 'none';
+    } catch (err) {
+      document.getElementById('status').textContent = 'שגיאה בקריאת הקובץ';
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+});
+
+function renderPreview() {
+  const el = document.getElementById('previewWrap');
+  if (!contacts.length) { el.innerHTML = ''; return; }
+  const rows = contacts.slice(0, 10).map(c =>
+    '<tr>' +
+    '<td>' + escapeHtml(c.extras.join(', ') || '—') + '</td>' +
+    '<td>' + escapeHtml(c.tels.join(', ')) + '</td>' +
+    '<td>' + escapeHtml(c.name) + '</td>' +
+    '</tr>'
+  ).join('');
+  el.innerHTML =
+    '<table><tr><th>פרטים נוספים</th><th>מספר</th><th>שם</th></tr>' + rows + '</table>' +
+    '<p class="note">מוצגים עד 10 מתוך ' + contacts.length + '</p>';
+}
+
+document.getElementById('downloadBtn').addEventListener('click', function () {
+  if (!contacts.length) return;
+  let rowsHtml = contacts.map(c =>
+    '<tr>' +
+    '<td style="border:1px solid #999; padding:6px; text-align:right; width:35%;">' + escapeHtml(c.extras.join('<br/>') || '') + '</td>' +
+    '<td style="border:1px solid #999; padding:6px; text-align:center; width:25%;">' + escapeHtml(c.tels.join('<br/>')) + '</td>' +
+    '<td style="border:1px solid #999; padding:6px; text-align:left; font-weight:bold; width:40%;">' + escapeHtml(c.name) + '</td>' +
+    '</tr>'
+  ).join('');
+
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
+    '<head><meta charset="utf-8"><style>body{font-family:Arial;direction:rtl;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #999;padding:6px;}</style></head>' +
+    '<body dir="rtl"><h2 style="text-align:right;">רשימת אנשי קשר</h2>' +
+    '<table><tr><th style="text-align:right;">פרטים נוספים</th><th style="text-align:center;">מספר</th><th style="text-align:left;">שם</th></tr>' +
+    rowsHtml + '</table></body></html>';
+
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'רשימת_אנשי_קשר.doc';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
