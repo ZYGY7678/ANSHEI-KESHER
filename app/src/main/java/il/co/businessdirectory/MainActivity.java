@@ -1,23 +1,14 @@
 package il.co.businessdirectory;
 
 import android.app.Activity;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.*;
 import android.graphics.Color;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private ListView list;
@@ -27,9 +18,6 @@ public class MainActivity extends Activity {
     private final ArrayList<String> rows = new ArrayList<String>();
     private final ArrayList<String> allRows = new ArrayList<String>();
     private final Set<String> phones = new HashSet<String>();
-
-    private static final String DATA_URL =
-        "https://data.gov.il/api/3/action/datastore_search?resource_id=5555edc5-532d-46b5-8415-01a54d5a5b73&limit=5000";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -50,6 +38,7 @@ public class MainActivity extends Activity {
             }
         };
         list.setAdapter(adapter);
+
         list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             public void onItemClick(AdapterView<?> a, View v, int p, long id) {
                 try {
@@ -62,6 +51,7 @@ public class MainActivity extends Activity {
                 } catch (Exception ignored) {}
             }
         });
+
         search.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             public boolean onEditorAction(TextView v, int actionId, KeyEvent e) {
                 filter(v.getText().toString());
@@ -77,67 +67,12 @@ public class MainActivity extends Activity {
                 return false;
             }
         });
+
+        // כל המידע נטען מתוך האפליקציה עצמה — אין צורך באינטרנט.
         addNetivotPublicData();
         rows.addAll(allRows);
         adapter.notifyDataSetChanged();
-        status.setText("נטענו " + rows.size() + " עסקים ושירותים • לחץ על עסק לחיוג");
-        loadData();
-    }
-
-    private void loadData() {
-        status.setText("טוען מאגר...");
-        new AsyncTask<Void,Void,String>() {
-            protected String doInBackground(Void... x) {
-                HttpURLConnection c = null;
-                try {
-                    URL u = new URL(DATA_URL);
-                    c = (HttpURLConnection)u.openConnection();
-                    c.setConnectTimeout(8000);
-                    c.setReadTimeout(10000);
-                    c.setUseCaches(false);
-                    c.setRequestMethod("GET");
-                    int code = c.getResponseCode();
-                    if (code < 200 || code >= 300) return null;
-                    BufferedReader r = new BufferedReader(new InputStreamReader(c.getInputStream(), "UTF-8"));
-                    StringBuilder b = new StringBuilder();
-                    String line;
-                    while ((line = r.readLine()) != null) b.append(line);
-                    r.close();
-                    return b.toString();
-                } catch (Exception ex) {
-                    return null;
-                } finally {
-                    if (c != null) c.disconnect();
-                }
-            }
-            protected void onPostExecute(String json) {
-                try {
-                    phones.clear();
-                    allRows.clear();
-                    addNetivotPublicData();
-                    if (json != null) {
-                        JSONObject root = new JSONObject(json);
-                        JSONObject result = root.optJSONObject("result");
-                        JSONArray records = result == null ? null : result.optJSONArray("records");
-                        if (records != null) {
-                            for (int i=0; i<records.length(); i++) {
-                                JSONObject o = records.optJSONObject(i);
-                                if (o == null) continue;
-                                addRow(safe(o.optString("city")), safe(o.optString("category")),
-                                    safe(o.optString("name")), safe(o.optString("address")),
-                                    safe(o.optString("phone")));
-                            }
-                        }
-                    }
-                    rows.clear();
-                    rows.addAll(allRows);
-                    adapter.notifyDataSetChanged();
-                    status.setText("נטענו " + rows.size() + " עסקים ושירותים • לחץ על עסק לחיוג");
-                    return;
-                    status.setText("שגיאה בטעינת הנתונים");
-                }
-            }
-        }.execute();
+        status.setText("מצב אופליין • " + rows.size() + " עסקים ושירותים • לחץ על עסק לחיוג");
     }
 
     private void addRow(String city, String category, String name, String address, String phone) {
@@ -147,6 +82,7 @@ public class MainActivity extends Activity {
         String key = phone.replaceAll("[^0-9+]", "");
         if (key.length() < 6 || phones.contains(key)) return;
         phones.add(key);
+
         String row = city;
         if (category.length() > 0) row += (row.length() > 0 ? " • " : "") + category;
         row += (row.length() > 0 ? " • " : "") + name;
@@ -203,7 +139,7 @@ public class MainActivity extends Activity {
         if (q.length() == 0) rows.addAll(allRows);
         else for (String s : allRows) if (s.toLowerCase().contains(q)) rows.add(s);
         adapter.notifyDataSetChanged();
-        status.setText("נמצאו " + rows.size() + " תוצאות");
+        status.setText("מצב אופליין • נמצאו " + rows.size() + " תוצאות");
     }
 
     @Override public void onBackPressed() {
