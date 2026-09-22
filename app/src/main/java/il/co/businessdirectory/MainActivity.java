@@ -52,7 +52,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        search.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+        allButton.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { selectAll(); } });\n\n        search.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             public boolean onEditorAction(TextView v, int actionId, KeyEvent e) {
                 filter(v.getText().toString());
                 return false;
