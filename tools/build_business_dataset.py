@@ -34,8 +34,19 @@ def add(city, category, name, address, phone, source):
 
 def fetch_ckan(resource_id):
     url = "https://data.gov.il/api/3/action/datastore_search"
-    data = get_json(url, {"resource_id":resource_id, "limit":5000}, 180)
-    return data.get("result", {}).get("records", [])
+    all_records = []
+    offset = 0
+    while True:
+        data = get_json(url, {"resource_id":resource_id, "limit":5000, "offset":offset}, 180)
+        result = data.get("result", {})
+        batch = result.get("records", [])
+        all_records.extend(batch)
+        if not batch or len(batch) < 5000:
+            break
+        offset += len(batch)
+        if offset > 100000:
+            break
+    return all_records
 
 # Government/public datasets with explicit business phone fields.
 for rec in fetch_ckan("5555edc5-532d-46b5-8415-01a54d5a5b73"):
