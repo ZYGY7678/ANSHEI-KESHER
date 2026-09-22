@@ -14,6 +14,8 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -24,6 +26,7 @@ public class MainActivity extends Activity {
     private ArrayAdapter<String> adapter;
     private final ArrayList<String> rows = new ArrayList<String>();
     private final ArrayList<String> allRows = new ArrayList<String>();
+    private final Set<String> phones = new HashSet<String>();
 
     private static final String DATA_URL =
         "https://data.gov.il/api/3/action/datastore_search?resource_id=5555edc5-532d-46b5-8415-01a54d5a5b73&limit=5000";
@@ -50,7 +53,7 @@ public class MainActivity extends Activity {
             public void onItemClick(AdapterView<?> a, View v, int p, long id) {
                 try {
                     String s = rows.get(p);
-                    int i = s.indexOf(" | ");
+                    int i = s.lastIndexOf(" | ");
                     String phone = i >= 0 ? s.substring(i + 3).trim() : s;
                     android.content.Intent in = new android.content.Intent(android.content.Intent.ACTION_DIAL);
                     in.setData(android.net.Uri.parse("tel:" + phone.replaceAll("[^0-9+]", "")));
@@ -104,42 +107,85 @@ public class MainActivity extends Activity {
             }
             protected void onPostExecute(String json) {
                 try {
-                    if (json == null) {
-                        status.setText("לא ניתן לטעון את המאגר כרגע");
-                        return;
-                    }
-                    JSONObject root = new JSONObject(json);
-                    JSONObject result = root.optJSONObject("result");
-                    JSONArray records = result == null ? null : result.optJSONArray("records");
-                    if (records == null) {
-                        status.setText("המאגר לא זמין כרגע");
-                        return;
-                    }
                     allRows.clear();
-                    for (int i=0; i<records.length(); i++) {
-                        JSONObject o = records.optJSONObject(i);
-                        if (o == null) continue;
-                        String name = safe(o.optString("name"));
-                        String phone = safe(o.optString("phone"));
-                        String city = safe(o.optString("city"));
-                        String address = safe(o.optString("address"));
-                        if (name.length() == 0 || phone.length() == 0) continue;
-                        String meta = city;
-                        if (address.length() > 0) meta = meta.length() == 0 ? address : meta + " • " + address;
-                        String row = name;
-                        if (meta.length() > 0) row += " • " + meta;
-                        row += " | " + phone;
-                        allRows.add(row);
+                    phones.clear();
+                    if (json != null) {
+                        JSONObject root = new JSONObject(json);
+                        JSONObject result = root.optJSONObject("result");
+                        JSONArray records = result == null ? null : result.optJSONArray("records");
+                        if (records != null) {
+                            for (int i=0; i<records.length(); i++) {
+                                JSONObject o = records.optJSONObject(i);
+                                if (o == null) continue;
+                                addRow(safe(o.optString("city")), safe(o.optString("category")),
+                                    safe(o.optString("name")), safe(o.optString("address")),
+                                    safe(o.optString("phone")));
+                            }
+                        }
                     }
+                    addNetivotPublicData();
                     rows.clear();
                     rows.addAll(allRows);
                     adapter.notifyDataSetChanged();
-                    status.setText("נטענו " + rows.size() + " עסקים • לחץ על עסק לחיוג");
-                } catch (Exception ex) {
+                    status.setText("נטענו " + rows.size() + " עסקים ושירותים • לחץ על עסק לחיוג");
+                    return;
                     status.setText("שגיאה בטעינת הנתונים");
                 }
             }
         }.execute();
+    }
+
+    private void addRow(String city, String category, String name, String address, String phone) {
+        city = safe(city); category = safe(category); name = safe(name);
+        address = safe(address); phone = safe(phone);
+        if (name.length() == 0 || phone.length() == 0) return;
+        String key = phone.replaceAll("[^0-9+]", "");
+        if (key.length() < 6 || phones.contains(key)) return;
+        phones.add(key);
+        String row = city;
+        if (category.length() > 0) row += (row.length() > 0 ? " • " : "") + category;
+        row += (row.length() > 0 ? " • " : "") + name;
+        if (address.length() > 0) row += " • " + address;
+        row += " | " + phone;
+        allRows.add(row);
+    }
+
+    private void addNetivotPublicData() {
+        addRow("נתיבות","מסעדות","ג'ויה סושי בר","יוסף סמלו 78","08-6900982");
+        addRow("נתיבות","מסעדות","מפגש הכיכר","שד' ירושלים 33, מרכז מסחרי","08-9932577");
+        addRow("נתיבות","מסעדות","טורו TORO","שד' ירושלים 1","08-9944405");
+        addRow("נתיבות","מסעדות","פלאפל כיד המלך","הרמב"ם 1, מרכז מסחרי","052-7433485");
+        addRow("נתיבות","מסעדות","מסעדת ניסים","","08-9945287");
+        addRow("נתיבות","מסעדות","פלאפל זגדון","יוסף סמלו 16","08-9930187");
+        addRow("נתיבות","מסעדות","פלאפל בוארון","יוסף סמלו 9","08-6882299");
+        addRow("נתיבות","מסעדות","פלאפל סופר","שד' ירושלים 134","08-6440130");
+        addRow("נתיבות","מוסכים","אולטרקס","הארזים 74","08-9941777");
+        addRow("נתיבות","מוסכים","מוסך עינב","הארזים 46","08-6709400");
+        addRow("נתיבות","מוסכים","מוסך אשר","אברהם רוזנמן 671, צים סנטר","08-6375505");
+        addRow("נתיבות","מוסכים","א.א. אטיאס","הקציר 669","050-4213207");
+        addRow("נתיבות","מוסכים","מוסך צל אלקטרוניקה","רבי עקיבא 38","072-3116714");
+        addRow("נתיבות","מוסכים","מוסך דיזל הנגב-ישראל","אזור תעשיה חדש","072-3200245");
+        addRow("נתיבות","סופרמרקטים","סופר דמרי","הגפן 3","08-9932387");
+        addRow("נתיבות","סופרמרקטים","סופר חיים סמילה ובניו","ורדימון 2","08-9941473");
+        addRow("נתיבות","סופרמרקטים","מינימרקט אדרי","שד' ירושלים 1001, מרכז מסחרי","08-9930302");
+        addRow("נתיבות","סופרמרקטים","מכולת ביטון דוד","יוסף סמלו 7","08-9944837");
+        addRow("נתיבות","סופרמרקטים","היפר כהן - סניף רימון","הרב צבאן","08-9933173");
+        addRow("נתיבות","סופרמרקטים","היפר כהן - סניף בעלי המלאכה","בעלי המלאכה 8, צים סנטר","08-9930991");
+        addRow("נתיבות","מאפיות","רשת לחם פרנה","בעלי המלאכה 10","054-2527304");
+        addRow("נתיבות","מאפיות","שיבולת השרון נתיבות","שד' ירושלים 18","08-6790413");
+        addRow("נתיבות","מאפיות","מאפית שיבולי הלקט","ירושלים 170","052-6175293");
+        addRow("נתיבות","מאפיות","מאפה נאמן מתחם פריז","בעלי המלאכה 3","08-6161311");
+        addRow("נתיבות","מאפיות","Litel Bakery מאפית בוטיק","רפיח ים 24","058-4242204");
+        addRow("נתיבות","סלולר ותקשורת","אריאל פון","בעלי המלאכה 5, צים סנטר","052-3777097");
+        addRow("נתיבות","סלולר ותקשורת","פרטנר","רבי עקיבא 1","054-5685005");
+        addRow("נתיבות","סלולר ותקשורת","איתמר תקשורת","שד' ירושלים 170","050-3566668");
+        addRow("נתיבות","סלולר ותקשורת","Dvcom די.וי קום","יוסף סמלו 1","08-9930412");
+        addRow("נתיבות","סלולר ותקשורת","תיקוני אייפון","שד' ירושלים 97","050-3456501");
+        addRow("נתיבות","סלולר ותקשורת","עוז והדר סלולאר","רבי עקיבא 1","054-2470702");
+        addRow("נתיבות","טכנולוגיה","אל קיי טכנולוגיה","בעלי המלאכה 205","055-2617714");
+        addRow("נתיבות","עסקים","סמארט סנטר","בעלי המלאכה 5","08-6435761");
+        addRow("נתיבות","שירותי עירייה","עיריית נתיבות","כיכר יהדות צרפת 4","08-9938711");
+        addRow("נתיבות","ספרייה","הספריה העירונית","שדרות ירושלים 195","077-9109132");
     }
 
     private String safe(String s) {
