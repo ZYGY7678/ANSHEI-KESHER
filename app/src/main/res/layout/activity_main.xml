@@ -6,7 +6,7 @@
         android:text="עסקים וטלפונים בישראל" android:textColor="#FFFFFF" android:textSize="23sp"
         android:textStyle="bold" android:gravity="center" android:padding="8dp"/>
     <EditText android:id="@+id/search" android:layout_width="match_parent" android:layout_height="48dp"
-        android:hint="חיפוש עסק, עיר, קטגוריה או טלפון" android:textColor="#FFFFFF" android:hintTextColor="#9AA0A6"
+        android:hint="חיפוש עסק, עיר, קטגוריה או טלפון" android:textColor="#FFFFFF" android:textColorHint="#9AA0A6"
         android:singleLine="true" android:inputType="text" android:background="#202428" android:padding="12dp"/>
     <HorizontalScrollView android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="7dp">
         <LinearLayout android:id="@+id/categories" android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="horizontal"/>
