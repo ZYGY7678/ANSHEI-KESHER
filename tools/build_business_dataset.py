@@ -46,6 +46,22 @@ for rec in fetch_ckan("7d4c61e2-2416-453e-8efb-bd02ec89db35"):
         " ".join(x for x in [rec.get("שם רחוב"), str(rec.get("בית") or "")] if x),
         rec.get("טלפון בעסק"), "data.gov.il/באר שבע")
 
+# Ministry of Transport: nationwide licensed garages/test institutes.
+for rec in fetch_ckan("bb68386a-a331-4bbc-b668-bba2766d517d"):
+    add(rec.get("yishuv"), rec.get("sug_mosah") or "מוסך/מכון רישוי", rec.get("shem_mosah"),
+        rec.get("ktovet"), rec.get("telephone"), "data.gov.il/משרד התחבורה/מוסכים")
+
+# Ministry of Transport: nationwide vehicle-parts traders/importers/manufacturers.
+for rec in fetch_ckan("42e73a60-7acc-4c5d-b4ec-b0e468a73c51"):
+    add(rec.get("yishuv"), rec.get("isuk") or rec.get("sug_esek") or "מוצרי תעבורה",
+        rec.get("shem_esek"), rec.get("ktovet"), rec.get("telephone"),
+        "data.gov.il/משרד התחבורה/מוצרי תעבורה")
+
+# Ministry of Transport: nationwide driving schools.
+for rec in fetch_ckan("3f06e2f2-e2ad-41ac-9665-37d0625537f2"):
+    add(rec.get("ezor"), "בית ספר לנהיגה", rec.get("shem_beit_sefer"),
+        rec.get("ktovet"), rec.get("telefon"), "data.gov.il/משרד התחבורה/בתי ספר לנהיגה")
+
 # Tel Aviv municipal business layer. Paginate because the service caps responses.
 base = "https://gisn.tel-aviv.gov.il/ArcGIS/rest/services/WM/IView2WMTest/MapServer/925/query"
 offset = 0
