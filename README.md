@@ -26,3 +26,6 @@ GitHub Actions מבצע build אוטומטי בכל push לענף `android-busin
 
 
 Build note: fallback business list is shown immediately for Android 4.4.4 compatibility.
+
+
+- Large nationwide public/business phone dataset is generated during CI from open public sources before each APK build.
