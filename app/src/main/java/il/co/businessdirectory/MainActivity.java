@@ -8,12 +8,19 @@ import android.widget.*;
 import android.graphics.Color;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Set;\nimport java.io.BufferedReader;\nimport java.io.InputStream;\nimport java.io.InputStreamReader;
+import java.util.Set;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 
 public class MainActivity extends Activity {
     private ListView list;
     private EditText search;
     private TextView status;
+    private TextView screenTitle;
+    private LinearLayout cityBar;
+    private Button allButton;
+    private String selectedCity = "";
     private ArrayAdapter<String> adapter;
     private final ArrayList<String> rows = new ArrayList<String>();
     private final ArrayList<String> allRows = new ArrayList<String>();
@@ -25,6 +32,9 @@ public class MainActivity extends Activity {
         list = (ListView)findViewById(R.id.list);
         search = (EditText)findViewById(R.id.search);
         status = (TextView)findViewById(R.id.status);
+        screenTitle = (TextView)findViewById(R.id.title);
+        cityBar = (LinearLayout)findViewById(R.id.cityBar);
+        allButton = (Button)findViewById(R.id.allButton);
 
         adapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, rows) {
             @Override public View getView(int p, View v, android.view.ViewGroup parent) {
@@ -52,7 +62,11 @@ public class MainActivity extends Activity {
             }
         });
 
-        allButton.setOnClickListener(new View.OnClickListener() { public void onClick(View v) { selectAll(); } });\n\n        search.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+        allButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { selectAll(); }
+        });
+
+        search.setOnEditorActionListener(new TextView.OnEditorActionListener() {
             public boolean onEditorAction(TextView v, int actionId, KeyEvent e) {
                 filter(v.getText().toString());
                 return false;
@@ -68,11 +82,59 @@ public class MainActivity extends Activity {
             }
         });
 
-        // כל המידע נטען מתוך האפליקציה עצמה — אין צורך באינטרנט.
-        addNetivotPublicData();
-        rows.addAll(allRows);
+        boolean loaded = loadBundledData();
+        if (!loaded) addNetivotPublicData();
+        buildCityBar();
+        showCity("");
+    }
+
+    private void buildCityBar() {
+        cityBar.removeAllViews();
+        java.util.Map<String,Integer> counts = new java.util.TreeMap<String,Integer>();
+        for (String s : allRows) {
+            String city = cityOf(s);
+            if (city.length() == 0) continue;
+            Integer n = counts.get(city);
+            counts.put(city, n == null ? 1 : n + 1);
+        }
+        for (java.util.Map.Entry<String,Integer> e : counts.entrySet()) {
+            final String city = e.getKey();
+            Button b = new Button(this);
+            b.setText(city + " (" + e.getValue() + ")");
+            b.setTextColor(Color.rgb(102,252,241));
+            b.setTextSize(14);
+            b.setAllCaps(false);
+            b.setBackgroundColor(Color.rgb(31,40,51));
+            b.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { showCity(city); }
+            });
+            cityBar.addView(b, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.MATCH_PARENT));
+        }
+    }
+
+    private String cityOf(String s) {
+        int i = s.indexOf(" • ");
+        return i > 0 ? s.substring(0, i).trim() : "";
+    }
+
+    private void showCity(String city) {
+        selectedCity = city == null ? "" : city;
+        rows.clear();
+        if (selectedCity.length() == 0) {
+            rows.addAll(allRows);
+            screenTitle.setText("עסקים וטלפונים בישראל");
+        } else {
+            for (String s : allRows) if (cityOf(s).equals(selectedCity)) rows.add(s);
+            screenTitle.setText(selectedCity);
+        }
         adapter.notifyDataSetChanged();
-        status.setText("מצב אופליין • " + rows.size() + " עסקים ושירותים • לחץ על עסק לחיוג");
+        status.setText("מצב אופליין • " + rows.size() + " עסקים ושירותים");
+    }
+
+    private void selectAll() {
+        search.setText("");
+        showCity("");
     }
 
     private boolean loadBundledData() {
@@ -240,8 +302,10 @@ public class MainActivity extends Activity {
     private void filter(String q) {
         q = q == null ? "" : q.trim().toLowerCase();
         rows.clear();
-        if (q.length() == 0) rows.addAll(allRows);
-        else for (String s : allRows) if (s.toLowerCase().contains(q)) rows.add(s);
+        for (String s : allRows) {
+            if (selectedCity.length() > 0 && !cityOf(s).equals(selectedCity)) continue;
+            if (q.length() == 0 || s.toLowerCase().contains(q)) rows.add(s);
+        }
         adapter.notifyDataSetChanged();
         status.setText("מצב אופליין • נמצאו " + rows.size() + " תוצאות");
     }
