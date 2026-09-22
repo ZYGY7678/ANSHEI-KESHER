@@ -17,8 +17,9 @@ jobs:
           java-version: '17'
       - name: Install Android SDK packages
         run: |
-          sdkmanager --licenses </dev/null || true
-          sdkmanager "platform-tools" "platforms;android-28" "build-tools;30.0.3"
+          SDKMANAGER=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
+          yes | $SDKMANAGER --licenses || true
+          $SDKMANAGER "platform-tools" "platforms;android-28" "build-tools;30.0.3"
       - name: Java 11 for legacy Android Gradle Plugin
         uses: actions/setup-java@v4
         with:
