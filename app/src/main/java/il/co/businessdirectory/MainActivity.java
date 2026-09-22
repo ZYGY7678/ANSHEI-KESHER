@@ -8,7 +8,7 @@ import android.widget.*;
 import android.graphics.Color;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Set;
+import java.util.Set;\nimport java.io.BufferedReader;\nimport java.io.InputStream;\nimport java.io.InputStreamReader;
 
 public class MainActivity extends Activity {
     private ListView list;
@@ -73,6 +73,45 @@ public class MainActivity extends Activity {
         rows.addAll(allRows);
         adapter.notifyDataSetChanged();
         status.setText("מצב אופליין • " + rows.size() + " עסקים ושירותים • לחץ על עסק לחיוג");
+    }
+
+    private boolean loadBundledData() {
+        boolean any = false;
+        try {
+            InputStream in = getAssets().open("businesses.csv");
+            BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
+            String line;
+            boolean first = true;
+            while ((line = br.readLine()) != null) {
+                if (first) { first = false; continue; }
+                String[] p = csvSplit(line);
+                if (p.length >= 5) {
+                    int before = allRows.size();
+                    addRow(p[0], p[1], p[2], p[3], p[4]);
+                    if (allRows.size() > before) any = true;
+                }
+            }
+            br.close();
+        } catch (Exception ignored) {}
+        return any;
+    }
+
+    private String[] csvSplit(String line) {
+        ArrayList<String> out = new ArrayList<String>();
+        StringBuilder cur = new StringBuilder();
+        boolean q = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (c == '"') {
+                if (q && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    cur.append('"'); i++;
+                } else q = !q;
+            } else if (c == ',' && !q) {
+                out.add(cur.toString()); cur.setLength(0);
+            } else cur.append(c);
+        }
+        out.add(cur.toString());
+        return out.toArray(new String[out.size()]);
     }
 
     private void addRow(String city, String category, String name, String address, String phone) {
