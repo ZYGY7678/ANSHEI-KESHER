@@ -29,6 +29,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '6.7.1'
+      - name: Build large offline business dataset
+        run: python3 tools/build_business_dataset.py
       - name: Build debug APK
         run: gradle assembleDebug --no-daemon
       - name: Upload APK
