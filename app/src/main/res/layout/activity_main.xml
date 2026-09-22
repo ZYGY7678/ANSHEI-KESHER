@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="10dp" android:background="#101214">
+    <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="עסקים וטלפונים בישראל" android:textColor="#FFFFFF" android:textSize="23sp"
+        android:textStyle="bold" android:gravity="center" android:padding="8dp"/>
+    <EditText android:id="@+id/search" android:layout_width="match_parent" android:layout_height="48dp"
+        android:hint="חיפוש עסק, עיר, קטגוריה או טלפון" android:textColor="#FFFFFF" android:hintTextColor="#9AA0A6"
+        android:singleLine="true" android:inputType="text" android:background="#202428" android:padding="12dp"/>
+    <HorizontalScrollView android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="7dp">
+        <LinearLayout android:id="@+id/categories" android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="horizontal"/>
+    </HorizontalScrollView>
+    <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="טוען מאגר..." android:textColor="#66FCF1" android:padding="5dp"/>
+    <ListView android:id="@+id/list" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:divider="#30343A" android:dividerHeight="1dp"/>
+</LinearLayout>
