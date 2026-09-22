@@ -43,6 +43,7 @@ public class MainActivity extends Activity {
                 TextView t = (TextView)super.getView(p, v, parent);
                 t.setTextColor(Color.WHITE);
                 t.setTextSize(17);
+                t.setBackgroundColor(Color.rgb(31, 35, 40));
                 t.setPadding(16, 14, 16, 14);
                 t.setSingleLine(false);
                 return t;
@@ -76,6 +77,10 @@ public class MainActivity extends Activity {
                 return false;
             }
         });
+        addNetivotPublicData();
+        rows.addAll(allRows);
+        adapter.notifyDataSetChanged();
+        status.setText("נטענו " + rows.size() + " עסקים ושירותים • לחץ על עסק לחיוג");
         loadData();
     }
 
@@ -107,8 +112,9 @@ public class MainActivity extends Activity {
             }
             protected void onPostExecute(String json) {
                 try {
-                    allRows.clear();
                     phones.clear();
+                    allRows.clear();
+                    addNetivotPublicData();
                     if (json != null) {
                         JSONObject root = new JSONObject(json);
                         JSONObject result = root.optJSONObject("result");
@@ -123,7 +129,6 @@ public class MainActivity extends Activity {
                             }
                         }
                     }
-                    addNetivotPublicData();
                     rows.clear();
                     rows.addAll(allRows);
                     adapter.notifyDataSetChanged();
