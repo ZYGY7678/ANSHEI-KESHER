@@ -1,30 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:padding="12dp" android:background="#0B0C10">
-    <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="עסקים וטלפונים בישראל" android:textColor="#FFFFFF" android:textSize="25sp"
-        android:textStyle="bold" android:gravity="right" android:padding="10dp"/>
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="בחר עיר כדי לעיין ברשימת העסקים, או חפש בכל הארץ"
-        android:textColor="#9AA0A6" android:textSize="14sp" android:gravity="right" android:padding="0dp"/>
-    <EditText android:id="@+id/search" android:layout_width="match_parent" android:layout_height="50dp"
-        android:layout_marginTop="10dp" android:hint="🔎  חיפוש בכל המאגר או בעיר הנבחרת"
-        android:textColor="#FFFFFF" android:textColorHint="#8C949E"
-        android:singleLine="true" android:inputType="text" android:background="#1F2833" android:padding="13dp"/>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp"
-        android:orientation="horizontal">
-        <Button android:id="@+id/allButton" android:layout_width="wrap_content" android:layout_height="match_parent"
-            android:text="כל הארץ" android:textColor="#66FCF1" android:textSize="15sp"
-            android:background="#1F2833" android:textAllCaps="false"/>
-        <HorizontalScrollView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
-            android:scrollbars="none">
-            <LinearLayout android:id="@+id/cityBar" android:layout_width="wrap_content" android:layout_height="match_parent" android:orientation="horizontal"/>
-        </HorizontalScrollView>
+    android:orientation="vertical" android:background="#0B0C10" android:padding="12dp"
+    android:layoutDirection="rtl">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="4dp">
+        <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="עסקים וטלפונים בישראל" android:textColor="#FFFFFF" android:textSize="24sp"
+            android:textStyle="bold" android:gravity="right" android:padding="4dp"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="מאגר מספרי טלפון ציבוריים של עסקים ושירותים בישראל"
+            android:textColor="#8F9AA6" android:textSize="13sp" android:gravity="right" android:padding="4dp"/>
     </LinearLayout>
+
+    <EditText android:id="@+id/search" android:layout_width="match_parent" android:layout_height="52dp"
+        android:layout_marginTop="8dp" android:hint="חיפוש לפי עסק, תחום, כתובת או טלפון"
+        android:textColor="#FFFFFF" android:textColorHint="#7D8792" android:textSize="16sp"
+        android:singleLine="true" android:inputType="text" android:background="#1B222A" android:padding="14dp"
+        android:gravity="right"/>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+        <Button android:id="@+id/allButton" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:text="כל הארץ" android:textColor="#66FCF1" android:textSize="15sp"
+            android:background="#202A33" android:textAllCaps="false"/>
+        <Space android:layout_width="8dp" android:layout_height="1dp"/>
+        <Button android:id="@+id/cityButton" android:layout_width="0dp" android:layout_height="match_parent"
+            android:layout_weight="1" android:text="בחירת עיר" android:textColor="#FFFFFF" android:textSize="15sp"
+            android:background="#202A33" android:textAllCaps="false"/>
+    </LinearLayout>
+
     <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="טוען מאגר..." android:textColor="#66FCF1" android:textSize="14sp"
-        android:gravity="right" android:padding="8dp"/>
-    <ListView android:id="@+id/list" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
-        android:divider="#252A31" android:dividerHeight="1dp"/>
+        android:text="טוען מאגר..." android:textColor="#66FCF1" android:textSize="13sp"
+        android:gravity="right" android:padding="10dp"/>
+
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="בחר עסק ולחץ כדי לחייג"
+        android:textColor="#69747F" android:textSize="12sp" android:gravity="right"
+        android:paddingLeft="8dp" android:paddingRight="8dp" android:paddingBottom="6dp"/>
+
+    <ListView android:id="@+id/list" android:layout_width="match_parent" android:layout_height="0dp"
+        android:layout_weight="1" android:divider="#0B0C10" android:dividerHeight="5dp"
+        android:choiceMode="singleChoice" android:background="#0B0C10"/>
 </LinearLayout>
