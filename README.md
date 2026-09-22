@@ -23,3 +23,6 @@ GitHub Actions מבצע build אוטומטי בכל push לענף `android-busin
 
 ## הערה על פרטיות וזכויות
 האפליקציה מיועדת למספרי קשר של עסקים ושירותים ציבוריים בלבד. אין להוסיף מספרים פרטיים או מידע אישי שאינו מיועד לפרסום.
+
+
+Build note: fallback business list is shown immediately for Android 4.4.4 compatibility.
