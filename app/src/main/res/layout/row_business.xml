@@ -1,7 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content"
- android:orientation="vertical" android:padding="12dp" android:background="#181B1F">
- <TextView android:id="@+id/name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="18sp" android:textStyle="bold"/>
- <TextView android:id="@+id/meta" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#B8BEC6" android:textSize="14sp" android:paddingTop="4dp"/>
- <TextView android:id="@+id/phone" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#66FCF1" android:textSize="18sp" android:paddingTop="4dp"/>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="88dp"
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:focusable="true"
+    android:clickable="true"
+    android:layoutDirection="rtl"
+    android:background="@drawable/row_business_selector">
+
+    <TextView
+        android:id="@+id/name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="right"/>
+
+    <TextView
+        android:id="@+id/meta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:textColor="#66FCF1"
+        android:textSize="13sp"
+        android:gravity="right"/>
+
+    <TextView
+        android:id="@+id/address"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="#B7C0C9"
+        android:textSize="13sp"
+        android:gravity="right"/>
+
+    <TextView
+        android:id="@+id/phone"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:gravity="right"/>
 </LinearLayout>
