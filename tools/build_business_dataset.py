@@ -52,13 +52,14 @@ def add(city, category, name, address, phone, status="", license_date="",
         rows.append([city, category, name, address, ph, status, license_date,
                      lat, lon, website, hours, source])
 
-def fetch_datastore(rid, limit=250000):
+def fetch_datastore(rid, limit=250000, page_size=5000, timeout=120):
     out, off = [], 0
     while off < limit:
+        take = min(page_size, limit - off)
         b = get("https://data.gov.il/api/3/action/datastore_search",
-                {"resource_id": rid, "limit": 5000, "offset": off}, 180).get("result", {}).get("records", [])
+                {"resource_id": rid, "limit": take, "offset": off}, timeout).get("result", {}).get("records", [])
         out.extend(b)
-        if len(b) < 5000:
+        if len(b) < take:
             break
         off += len(b)
     print("FETCH", rid, len(out))
@@ -151,7 +152,7 @@ for q in queries:
     except Exception as e:
         print("DISCOVERY", e)
 
-for rid in resource_ids[:150]:
+for rid in resource_ids[:30]:
     try:
         sample = get("https://data.gov.il/api/3/action/datastore_search",
                      {"resource_id": rid, "limit": 3}, 60).get("result", {}).get("records", [])
@@ -162,7 +163,7 @@ for rid in resource_ids[:150]:
         nk = [k for k in keys if any(x in k for x in ["business","עסק","שם עסק","company","חברה","מסחר","name"])]
         if not pk or not nk:
             continue
-        for r in fetch_datastore(rid):
+        for r in fetch_datastore(rid, limit=30000):
             add(
                 pick(r, ["city","עיר","ישוב","יישוב","yishuv","town"]),
                 pick(r, ["category","קטגוריה","סוג עסק","industry","תחום"]),
@@ -223,7 +224,7 @@ out tags center;'''
 try:
     req = Request("https://overpass-api.de/api/interpreter", data=overpass.encode(),
                   headers={"User-Agent": UA, "Content-Type": "text/plain"})
-    with urlopen(req, timeout=420) as r:
+    with urlopen(req, timeout=180) as r:
         data = json.loads(r.read().decode("utf-8","replace"))
     for e in data.get("elements", []):
         t = e.get("tags", {})
