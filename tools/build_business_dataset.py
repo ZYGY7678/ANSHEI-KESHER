@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import csv, json, os, re, time, io, threading
+import csv, json, os, re, time, io, threading, concurrent.futures
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 
@@ -192,17 +192,25 @@ lat_terms = ["lat","latitude","קו רוחב"]
 lon_terms = ["lon","longitude","קו אורך"]
 
 # Rank metadata first; after that every eligible DataStore resource is inspected.
+
 cands = sorted(resource_meta.items(), key=lambda kv: (-(1000 if kv[0] in known else 0), kv[1]["title"]))
 print("RESOURCES_TO_SCAN=", len(cands))
 
-for rid, meta in cands:
+phone_terms = ["phone","telephone","tel","mobile","contact","טלפון","נייד"]
+name_terms = ["name","business","company","shop","facility","enterprise","עסק","שם","מוסד","סניף","חברה"]
+addr_terms = ["address","street","city","town","locality","יישוב","ישוב","עיר","כתובת","רחוב"]
+lat_terms = ["lat","latitude","קו רוחב"]
+lon_terms = ["lon","longitude","קו אורך"]
+
+def scan_resource(item):
+    rid, meta = item
     if len(rows) >= 120000:
-        break
+        return ("skip", rid, meta["title"], 0, len(rows))
     try:
         sample = get("https://data.gov.il/api/3/action/datastore_search",
                      {"resource_id": rid, "limit": 5}, 45).get("result", {}).get("records", [])
         if not sample:
-            continue
+            return ("none", rid, meta["title"], 0, len(rows))
         keys = [str(k) for k in sample[0].keys()]
         low = [k.lower() for k in keys]
         pk = [keys[i] for i,k in enumerate(low) if any(t in k for t in phone_terms)]
@@ -211,16 +219,15 @@ for rid, meta in cands:
         lak = [keys[i] for i,k in enumerate(low) if any(t in k for t in lat_terms)]
         lok = [keys[i] for i,k in enumerate(low) if any(t in k for t in lon_terms)]
         if not pk or not nk:
-            continue
-
+            return ("no-phone", rid, meta["title"], 0, len(rows))
         fetched = 0
         off = 0
         while off < 250000 and len(rows) < 120000:
-            b = get("https://data.gov.il/api/3/action/datastore_search",
-                    {"resource_id": rid, "limit": 5000, "offset": off}, 180).get("result", {}).get("records", [])
-            if not b:
+            b2 = get("https://data.gov.il/api/3/action/datastore_search",
+                     {"resource_id": rid, "limit": 5000, "offset": off}, 180).get("result", {}).get("records", [])
+            if not b2:
                 break
-            for rec in b:
+            for rec in b2:
                 add(
                     pick(rec, ["city","עיר","יישוב","ישוב","yishuv","town","locality"]),
                     pick(rec, ["category","קטגוריה","סוג עסק","תחום","industry","תיאור","סוג"]),
@@ -235,13 +242,24 @@ for rid, meta in cands:
                     pick(rec, ["hours","שעות פעילות","opening_hours"]),
                     meta["title"] or "data.gov.il"
                 )
-            fetched += len(b)
-            if len(b) < 5000:
+            fetched += len(b2)
+            if len(b2) < 5000:
                 break
-            off += len(b)
-        print("BUSINESS_DATASET", rid, meta["title"], "FETCHED=", fetched, "TOTAL=", len(rows))
+            off += len(b2)
+        return ("ok", rid, meta["title"], fetched, len(rows))
     except Exception as e:
-        print("DATASET", rid, meta["title"], e)
+        return ("error", rid, meta["title"], 0, len(rows))
+
+completed = 0
+with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+    futures = [pool.submit(scan_resource, item) for item in cands]
+    for fut in concurrent.futures.as_completed(futures):
+        result = fut.result()
+        completed += 1
+        if result[0] == "ok":
+            print("BUSINESS_DATASET", result[1], result[2], "FETCHED=", result[3], "TOTAL=", result[4])
+        if completed % 20 == 0:
+            print("CATALOG_PROGRESS=", completed, "/", len(futures), "BUSINESS_ROWS=", len(rows))
 
 # 4) Public municipal information in Tel Aviv.
 try:
