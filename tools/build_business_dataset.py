@@ -261,6 +261,108 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         if completed % 20 == 0:
             print("CATALOG_PROGRESS=", completed, "/", len(futures), "BUSINESS_ROWS=", len(rows))
 
+
+# 4) Municipal/open-data mirror sweep (odata.org.il / Datacity).
+# This mirror exposes public municipal datasets, including business licensing datasets
+# with business name, phone, address and coordinates. We never scrape commercial directories.
+odata_resources = {}
+for q in ["עסקים", "רישוי עסקים", "מאגר עסקים", "עסקים בעלי רישיון עסק",
+          "business license", "business phone"]:
+    try:
+        packs = get("https://www.odata.org.il/api/3/action/package_search",
+                    {"q": q, "rows": 1000, "start": 0}, 120).get("result", {}).get("results", [])
+        for pack in packs:
+            title = clean(pack.get("title"))
+            notes = clean(pack.get("notes"))
+            hay = (title + " " + notes).lower()
+            if any(x in hay for x in [
+                "אנשים פרטיים", "תושבים", "מצביעים", "מטופלים", "עובדים",
+                "דורשי עבודה", "נישומים", "תלמידים בודדים", "בעלי רכב פרטיים"
+            ]):
+                continue
+            license_name = clean(pack.get("license_title") or pack.get("license"))
+            for res in pack.get("resources", []):
+                rid = res.get("id")
+                if rid and res.get("datastore_active") and rid not in odata_resources:
+                    odata_resources[rid] = {
+                        "title": title,
+                        "notes": notes,
+                        "license": license_name
+                    }
+    except Exception as e:
+        print("ODATA_DISCOVERY", q, e)
+
+print("ODATA_RESOURCES=", len(odata_resources))
+
+def scan_odata_resource(item):
+    rid, meta = item
+    if len(rows) >= 120000:
+        return ("skip", rid, meta["title"], 0, len(rows))
+    try:
+        sample = get("https://www.odata.org.il/api/3/action/datastore_search",
+                     {"resource_id": rid, "limit": 5}, 45).get("result", {}).get("records", [])
+        if not sample:
+            return ("none", rid, meta["title"], 0, len(rows))
+        keys = [str(k) for k in sample[0].keys()]
+        low = [k.lower() for k in keys]
+        pk = [keys[i] for i,k in enumerate(low) if any(t in k for t in [
+            "phone","telephone","tel","mobile","contact","טלפון","נייד","tlpvn"
+        ])]
+        nk = [keys[i] for i,k in enumerate(low) if any(t in k for t in [
+            "name","business","company","shop","facility","enterprise","עסק","שם",
+            "מוסד","סניף","חברה","shm"
+        ])]
+        ak = [keys[i] for i,k in enumerate(low) if any(t in k for t in [
+            "address","street","city","town","locality","יישוב","ישוב","עיר",
+            "כתובת","רחוב","ktvbt"
+        ])]
+        lak = [keys[i] for i,k in enumerate(low) if any(t in k for t in ["lat","latitude","point_y","קו רוחב"]) ]
+        lok = [keys[i] for i,k in enumerate(low) if any(t in k for t in ["lon","longitude","point_x","קו אורך"]) ]
+        if not pk or not nk:
+            return ("no-phone", rid, meta["title"], 0, len(rows))
+
+        fetched = 0
+        off = 0
+        while off < 250000 and len(rows) < 120000:
+            b2 = get("https://www.odata.org.il/api/3/action/datastore_search",
+                     {"resource_id": rid, "limit": 5000, "offset": off}, 180).get("result", {}).get("records", [])
+            if not b2:
+                break
+            for rec in b2:
+                add(
+                    pick(rec, ["city","עיר","יישוב","ישוב","yishuv","town","locality"]),
+                    pick(rec, ["category","קטגוריה","סוג עסק","תחום","industry","תיאור","מהות","קבוצה"]),
+                    pick(rec, nk + ["name","שם עסק","שם","shm"]),
+                    pick(rec, ak + ["address","כתובת","רחוב","ktvbt"]),
+                    pick(rec, pk + ["phone","טלפון","telephone","tlpvn"]),
+                    pick(rec, ["status","סטטוס","מצב","פעיל","operating","status_name"]),
+                    pick(rec, ["license_date","תאריך רישיון","תאריך היתר","תאריך"]),
+                    pick(rec, lak + ["lat","latitude","POINT_Y"]),
+                    pick(rec, lok + ["lon","longitude","POINT_X"]),
+                    pick(rec, ["website","אתר","url","קישור"]),
+                    pick(rec, ["hours","שעות פעילות","opening_hours"]),
+                    meta["title"] or "מידע לעם"
+                )
+            fetched += len(b2)
+            if len(b2) < 5000:
+                break
+            off += len(b2)
+        return ("ok", rid, meta["title"], fetched, len(rows))
+    except Exception as e:
+        return ("error", rid, meta["title"], 0, len(rows))
+
+odata_items = sorted(odata_resources.items(), key=lambda kv: kv[1]["title"])
+completed = 0
+with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+    futures = [pool.submit(scan_odata_resource, item) for item in odata_items]
+    for fut in concurrent.futures.as_completed(futures):
+        result = fut.result()
+        completed += 1
+        if result[0] == "ok":
+            print("ODATA_DATASET", result[1], result[2], "FETCHED=", result[3], "TOTAL=", result[4])
+        if completed % 20 == 0:
+            print("ODATA_PROGRESS=", completed, "/", len(futures), "BUSINESS_ROWS=", len(rows))
+
 # 4) Public municipal information in Tel Aviv.
 try:
     off = 0
