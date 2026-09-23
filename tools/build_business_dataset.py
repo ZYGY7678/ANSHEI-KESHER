@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import csv, json, os, re, time, io
+import csv, json, os, re, time, io, threading
 from urllib.request import Request, urlopen
 from urllib.parse import urlencode
 
@@ -23,6 +23,7 @@ def get(url, p=None, t=120):
 
 rows = []
 seen = set()
+rows_lock = threading.Lock()
 
 def digits(v):
     return re.sub(r"[^0-9]", "", str(v or ""))
@@ -46,11 +47,12 @@ def add(city, category, name, address, phone, status="", license_date="",
         if len(digits(ph)) < 6:
             continue
         key = (city.lower(), name.lower(), digits(ph), address.lower())
-        if key in seen:
-            continue
-        seen.add(key)
-        rows.append([city, category, name, address, ph, status, license_date,
-                     lat, lon, website, hours, source])
+        with rows_lock:
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append([city, category, name, address, ph, status, license_date,
+                         lat, lon, website, hours, source])
 
 def fetch_datastore(rid, limit=250000, page_size=5000, timeout=120):
     out, off = [], 0
