@@ -1,46 +1,120 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:background="#0B0C10" android:padding="12dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0B0C10"
+    android:padding="10dp"
     android:layoutDirection="rtl">
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:orientation="vertical" android:padding="4dp">
-        <TextView android:id="@+id/title" android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="עסקים וטלפונים בישראל" android:textColor="#FFFFFF" android:textSize="24sp"
-            android:textStyle="bold" android:gravity="right" android:padding="4dp"/>
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="מאגר מספרי טלפון ציבוריים של עסקים ושירותים בישראל"
-            android:textColor="#8F9AA6" android:textSize="13sp" android:gravity="right" android:padding="4dp"/>
-    </LinearLayout>
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="עסקים וטלפונים בישראל"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:gravity="right"
+        android:padding="4dp"/>
 
-    <EditText android:id="@+id/search" android:layout_width="match_parent" android:layout_height="52dp"
-        android:layout_marginTop="8dp" android:hint="חיפוש לפי עסק, תחום, כתובת או טלפון"
-        android:textColor="#FFFFFF" android:textColorHint="#7D8792" android:textSize="16sp"
-        android:singleLine="true" android:inputType="text" android:background="#1B222A" android:padding="14dp"
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="מאגר ציבורי של עסקים, שירותים ומספרי טלפון מכל הארץ"
+        android:textColor="#7F8A96"
+        android:textSize="13sp"
+        android:gravity="right"
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp"
+        android:paddingBottom="6dp"/>
+
+    <EditText
+        android:id="@+id/search"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:hint="חיפוש עסק, תחום, כתובת, יישוב או טלפון"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#75808B"
+        android:textSize="16sp"
+        android:singleLine="true"
+        android:inputType="text"
+        android:background="#192029"
+        android:padding="12dp"
         android:gravity="right"/>
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="50dp" android:layout_marginTop="8dp"
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
         android:orientation="horizontal">
-        <Button android:id="@+id/allButton" android:layout_width="0dp" android:layout_height="match_parent"
-            android:layout_weight="1" android:text="כל הארץ" android:textColor="#66FCF1" android:textSize="15sp"
-            android:background="#202A33" android:textAllCaps="false"/>
-        <Space android:layout_width="8dp" android:layout_height="1dp"/>
-        <Button android:id="@+id/cityButton" android:layout_width="0dp" android:layout_height="match_parent"
-            android:layout_weight="1" android:text="בחירת עיר" android:textColor="#FFFFFF" android:textSize="15sp"
-            android:background="#202A33" android:textAllCaps="false"/>
+
+        <Button
+            android:id="@+id/allButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="כל הארץ"
+            android:textColor="#66FCF1"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:background="#202A33"/>
+
+        <Space android:layout_width="6dp" android:layout_height="1dp"/>
+
+        <Button
+            android:id="@+id/cityButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="כל היישובים"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:background="#202A33"/>
+
+        <Space android:layout_width="6dp" android:layout_height="1dp"/>
+
+        <Button
+            android:id="@+id/categoryButton"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:text="כל התחומים"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            android:background="#202A33"/>
     </LinearLayout>
 
-    <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="טוען מאגר..." android:textColor="#66FCF1" android:textSize="13sp"
-        android:gravity="right" android:padding="10dp"/>
+    <TextView
+        android:id="@+id/status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="טוען את המאגר הלאומי…"
+        android:textColor="#66FCF1"
+        android:textSize="13sp"
+        android:gravity="right"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"/>
 
-    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-        android:text="בחר עסק ולחץ כדי לחייג"
-        android:textColor="#69747F" android:textSize="12sp" android:gravity="right"
-        android:paddingLeft="8dp" android:paddingRight="8dp" android:paddingBottom="6dp"/>
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="לחיצה על עסק: חיוג, מפה, העתקה ופרטים"
+        android:textColor="#66727E"
+        android:textSize="12sp"
+        android:gravity="right"
+        android:paddingBottom="6dp"/>
 
-    <ListView android:id="@+id/list" android:layout_width="match_parent" android:layout_height="0dp"
-        android:layout_weight="1" android:divider="#0B0C10" android:dividerHeight="5dp"
-        android:choiceMode="singleChoice" android:background="#0B0C10"/>
+    <ListView
+        android:id="@+id/list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#0B0C10"
+        android:divider="#0B0C10"
+        android:dividerHeight="6dp"
+        android:choiceMode="singleChoice"
+        android:scrollbars="vertical"/>
 </LinearLayout>
