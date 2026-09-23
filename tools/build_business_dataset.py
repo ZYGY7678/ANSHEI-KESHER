@@ -132,21 +132,17 @@ for r in fetch_datastore("3f06e2f2-e2ad-41ac-9665-37d0625537f2"):
     add(r.get("ezor"), "בית ספר לנהיגה", r.get("shem_beit_sefer"),
         r.get("ktovet"), r.get("telefon"), source="משרד התחבורה")
 
-# 3) Broad open-data catalogue sweep.
-# We deliberately avoid private-person directories and commercial directory scraping.
-queries = [
-    "טלפון עסק", "טלפון בתי עסק", "טלפון רישוי", "עסקים", "בית עסק",
-    "מסחר", "חנויות", "שירותים", "מוסדות", "סניפים", "מרכזי שירות",
-    "מסעדות", "בתי קפה", "מלונות", "אירוח", "בתי מרקחת", "מרפאות",
-    "בתי חולים", "רופאים", "רופאי שיניים", "מוסכים", "תחנות דלק",
-    "בתי ספר", "מכללות", "חוגים", "ספורט", "יופי", "קבלנים",
-    "חברות", "יצרנים", "תיירות", "מוניות", "תחנות", "business phone"
-]
+# 3) Exhaustive data.gov.il catalogue sweep.
+# CKAN package_search defaults to *:* when q is omitted, and allows up to 1000 datasets/page.
+# We inspect the full public catalogue, then fetch only DataStore resources containing a
+# business/entity name and a public phone/contact field.
 resource_meta = {}
-for q in queries:
+for start_offset in (0, 1000, 2000):
     try:
         packs = get("https://data.gov.il/api/3/action/package_search",
-                    {"q": q, "rows": 1000, "start": 0}, 120).get("result", {}).get("results", [])
+                    {"q": "*:*", "rows": 1000, "start": start_offset}, 120).get("result", {}).get("results", [])
+        if not packs:
+            break
         for pack in packs:
             title = clean(pack.get("title"))
             notes = clean(pack.get("notes"))
@@ -158,24 +154,34 @@ for q in queries:
                 continue
             for res in pack.get("resources", []):
                 rid = res.get("id")
-                if not rid or not res.get("datastore_active"):
-                    continue
-                if rid not in resource_meta:
+                if rid and res.get("datastore_active") and rid not in resource_meta:
                     resource_meta[rid] = {
                         "title": title,
                         "notes": notes,
-                        "license": clean(pack.get("license_title") or pack.get("license")),
-                        "score": sum(1 for x in [
-                            "עסק","בתי עסק","רישוי","מסחר","חנויות","סניפים",
-                            "שירות","מוסך","מסעד","מרפ","בית מרקחת","תיירות",
-                            "חברה","קבלן","יצרן","טלפון","business","phone"
-                        ] if x in hay)
+                        "score": len(pack.get("resources", []))
                     }
     except Exception as e:
-        print("DISCOVERY", q, e)
+        print("FULL_CATALOG", start_offset, e)
 
-cands = sorted(resource_meta.items(), key=lambda kv: (-kv[1]["score"], kv[1]["title"]))
-print("CATALOG_CANDIDATES=", len(cands))
+# Also ensure high-value known public datasets are never missed by catalogue ranking.
+known = {
+    "3c5f8d70-b04d-49e0-acb8-e56231ef9d26": "מתחמי מרכזים מסחריים",
+    "edf3a5f6-713c-4166-ad75-427f47496e39": "תורנות בתי מרקחת",
+    "d65660ac-f895-463e-a8ed-3cdecc5d2c1b": "בתי מרקחת",
+    "016c3f10-fd7d-4f34-a08a-178f93472f00": "בתי ספר שדה",
+    "99b92311-9675-4351-85cd-9ed5ee69a787": "בתי ספר",
+    "9c55a7dd-3b92-4141-811c-5e30cc74a8a4": "יצרני ועסקי מזון בעלי רישיון",
+    "74cfb7ef-202a-409b-be08-33fb499b77de": "קבלני כוח אדם בעלי היתר",
+    "c54032cb-5306-4be9-a20d-a0be0ba49cc1": "בתי עסק המחזיקים בתעודת כשרות",
+    "c595a623-cbd1-45d8-9308-3fd71dfd7a5c": "תחנות דלק",
+    "a323d256-e6fe-4804-a4ff-f2b87289cb53": "תחנות מוניות",
+    "7f3009dd-b299-462c-8a6d-9c645b68059f": "תחנות כיבוי"
+}
+for rid, title in known.items():
+    if rid not in resource_meta:
+        resource_meta[rid] = {"title": title, "notes": "", "score": 999}
+
+print("FULL_CATALOG_RESOURCES=", len(resource_meta))
 
 phone_terms = ["phone","telephone","tel","mobile","contact","טלפון","נייד"]
 name_terms = ["name","business","company","shop","facility","enterprise","עסק","שם","מוסד","סניף","חברה"]
@@ -183,12 +189,16 @@ addr_terms = ["address","street","city","town","locality","יישוב","ישוב
 lat_terms = ["lat","latitude","קו רוחב"]
 lon_terms = ["lon","longitude","קו אורך"]
 
-for rid, meta in cands[:240]:
-    if len(rows) >= 110000:
+# Rank metadata first; after that every eligible DataStore resource is inspected.
+cands = sorted(resource_meta.items(), key=lambda kv: (-(1000 if kv[0] in known else 0), kv[1]["title"]))
+print("RESOURCES_TO_SCAN=", len(cands))
+
+for rid, meta in cands:
+    if len(rows) >= 120000:
         break
     try:
         sample = get("https://data.gov.il/api/3/action/datastore_search",
-                     {"resource_id": rid, "limit": 5}, 60).get("result", {}).get("records", [])
+                     {"resource_id": rid, "limit": 5}, 45).get("result", {}).get("records", [])
         if not sample:
             continue
         keys = [str(k) for k in sample[0].keys()]
@@ -200,18 +210,10 @@ for rid, meta in cands[:240]:
         lok = [keys[i] for i,k in enumerate(low) if any(t in k for t in lon_terms)]
         if not pk or not nk:
             continue
-        title_low = meta["title"].lower()
-        businessish = any(x in title_low for x in [
-            "עסק","מסחר","חנות","סניף","מוסך","מסעד","בית קפה","מלון","אירוח",
-            "מרפאה","בית מרקחת","בית חולים","קבל","יצרן","חברה","תיירות","שירות",
-            "בתי ספר","בית ספר","מכללה","ספורט","יופי","מונית","תחנת דלק"
-        ])
-        if not businessish and meta["score"] < 3:
-            continue
 
         fetched = 0
         off = 0
-        while off < 180000 and len(rows) < 110000:
+        while off < 250000 and len(rows) < 120000:
             b = get("https://data.gov.il/api/3/action/datastore_search",
                     {"resource_id": rid, "limit": 5000, "offset": off}, 180).get("result", {}).get("records", [])
             if not b:
