@@ -132,54 +132,112 @@ for r in fetch_datastore("3f06e2f2-e2ad-41ac-9665-37d0625537f2"):
     add(r.get("ezor"), "בית ספר לנהיגה", r.get("shem_beit_sefer"),
         r.get("ktovet"), r.get("telefon"), source="משרד התחבורה")
 
-# 3) Discover additional open government business datasets automatically.
-queries = ["עסקים טלפון", "רישוי עסקים טלפון", "בתי עסק טלפון",
-           "מסחר טלפון", "business phone", "business license phone"]
-resource_ids = []
+# 3) Broad open-data catalogue sweep.
+# We deliberately avoid private-person directories and commercial directory scraping.
+queries = [
+    "טלפון עסק", "טלפון בתי עסק", "טלפון רישוי", "עסקים", "בית עסק",
+    "מסחר", "חנויות", "שירותים", "מוסדות", "סניפים", "מרכזי שירות",
+    "מסעדות", "בתי קפה", "מלונות", "אירוח", "בתי מרקחת", "מרפאות",
+    "בתי חולים", "רופאים", "רופאי שיניים", "מוסכים", "תחנות דלק",
+    "בתי ספר", "מכללות", "חוגים", "ספורט", "יופי", "קבלנים",
+    "חברות", "יצרנים", "תיירות", "מוניות", "תחנות", "business phone"
+]
+resource_meta = {}
 for q in queries:
     try:
         packs = get("https://data.gov.il/api/3/action/package_search",
-                    {"q": q, "rows": 100}, 120).get("result", {}).get("results", [])
+                    {"q": q, "rows": 1000, "start": 0}, 120).get("result", {}).get("results", [])
         for pack in packs:
             title = clean(pack.get("title"))
-            hay = (title + " " + clean(pack.get("notes"))).lower()
-            if not any(x in hay for x in ["עסק","רישוי","מסחר","business","trade","license","commerce"]):
+            notes = clean(pack.get("notes"))
+            hay = (title + " " + notes).lower()
+            if any(x in hay for x in [
+                "אנשים פרטיים", "תושבים", "מצביעים", "מטופלים", "עובדים",
+                "דורשי עבודה", "נישומים", "תלמידים בודדים", "בעלי רכב פרטיים"
+            ]):
                 continue
             for res in pack.get("resources", []):
                 rid = res.get("id")
-                if rid and res.get("datastore_active") and rid not in resource_ids:
-                    resource_ids.append(rid)
+                if not rid or not res.get("datastore_active"):
+                    continue
+                if rid not in resource_meta:
+                    resource_meta[rid] = {
+                        "title": title,
+                        "notes": notes,
+                        "license": clean(pack.get("license_title") or pack.get("license")),
+                        "score": sum(1 for x in [
+                            "עסק","בתי עסק","רישוי","מסחר","חנויות","סניפים",
+                            "שירות","מוסך","מסעד","מרפ","בית מרקחת","תיירות",
+                            "חברה","קבלן","יצרן","טלפון","business","phone"
+                        ] if x in hay)
+                    }
     except Exception as e:
-        print("DISCOVERY", e)
+        print("DISCOVERY", q, e)
 
-for rid in resource_ids[:30]:
+cands = sorted(resource_meta.items(), key=lambda kv: (-kv[1]["score"], kv[1]["title"]))
+print("CATALOG_CANDIDATES=", len(cands))
+
+phone_terms = ["phone","telephone","tel","mobile","contact","טלפון","נייד"]
+name_terms = ["name","business","company","shop","facility","enterprise","עסק","שם","מוסד","סניף","חברה"]
+addr_terms = ["address","street","city","town","locality","יישוב","ישוב","עיר","כתובת","רחוב"]
+lat_terms = ["lat","latitude","קו רוחב"]
+lon_terms = ["lon","longitude","קו אורך"]
+
+for rid, meta in cands[:240]:
+    if len(rows) >= 110000:
+        break
     try:
         sample = get("https://data.gov.il/api/3/action/datastore_search",
-                     {"resource_id": rid, "limit": 3}, 60).get("result", {}).get("records", [])
+                     {"resource_id": rid, "limit": 5}, 60).get("result", {}).get("records", [])
         if not sample:
             continue
-        keys = [str(k).lower() for k in sample[0].keys()]
-        pk = [k for k in keys if any(x in k for x in ["phone","tel","טלפון","telephone"])]
-        nk = [k for k in keys if any(x in k for x in ["business","עסק","שם עסק","company","חברה","מסחר","name"])]
+        keys = [str(k) for k in sample[0].keys()]
+        low = [k.lower() for k in keys]
+        pk = [keys[i] for i,k in enumerate(low) if any(t in k for t in phone_terms)]
+        nk = [keys[i] for i,k in enumerate(low) if any(t in k for t in name_terms)]
+        ak = [keys[i] for i,k in enumerate(low) if any(t in k for t in addr_terms)]
+        lak = [keys[i] for i,k in enumerate(low) if any(t in k for t in lat_terms)]
+        lok = [keys[i] for i,k in enumerate(low) if any(t in k for t in lon_terms)]
         if not pk or not nk:
             continue
-        for r in fetch_datastore(rid, limit=30000):
-            add(
-                pick(r, ["city","עיר","ישוב","יישוב","yishuv","town"]),
-                pick(r, ["category","קטגוריה","סוג עסק","industry","תחום"]),
-                pick(r, nk + ["name","שם עסק"]),
-                pick(r, ["address","כתובת","street","רחוב","ktovet"]),
-                pick(r, pk + ["phone","טלפון","telephone"]),
-                pick(r, ["status","סטטוס","מצב","operating"]),
-                pick(r, ["license_date","תאריך רישיון","תאריך היתר","permit"]),
-                pick(r, ["lat","latitude","קו רוחב","x"]),
-                pick(r, ["lon","longitude","קו אורך","y"]),
-                pick(r, ["website","אתר","url"]),
-                pick(r, ["hours","שעות פעילות","opening_hours"]),
-                "data.gov.il"
-            )
+        title_low = meta["title"].lower()
+        businessish = any(x in title_low for x in [
+            "עסק","מסחר","חנות","סניף","מוסך","מסעד","בית קפה","מלון","אירוח",
+            "מרפאה","בית מרקחת","בית חולים","קבל","יצרן","חברה","תיירות","שירות",
+            "בתי ספר","בית ספר","מכללה","ספורט","יופי","מונית","תחנת דלק"
+        ])
+        if not businessish and meta["score"] < 3:
+            continue
+
+        fetched = 0
+        off = 0
+        while off < 180000 and len(rows) < 110000:
+            b = get("https://data.gov.il/api/3/action/datastore_search",
+                    {"resource_id": rid, "limit": 5000, "offset": off}, 180).get("result", {}).get("records", [])
+            if not b:
+                break
+            for rec in b:
+                add(
+                    pick(rec, ["city","עיר","יישוב","ישוב","yishuv","town","locality"]),
+                    pick(rec, ["category","קטגוריה","סוג עסק","תחום","industry","תיאור","סוג"]),
+                    pick(rec, nk + ["name","שם עסק","שם","שם המוסד","שם החברה"]),
+                    pick(rec, ak + ["address","כתובת","רחוב"]),
+                    pick(rec, pk + ["phone","טלפון","telephone","mobile"]),
+                    pick(rec, ["status","סטטוס","מצב","פעיל","operating"]),
+                    pick(rec, ["license_date","תאריך רישיון","תאריך היתר","תאריך"]),
+                    pick(rec, lak + ["lat","latitude","קו רוחב"]),
+                    pick(rec, lok + ["lon","longitude","קו אורך"]),
+                    pick(rec, ["website","אתר","url","קישור"]),
+                    pick(rec, ["hours","שעות פעילות","opening_hours"]),
+                    meta["title"] or "data.gov.il"
+                )
+            fetched += len(b)
+            if len(b) < 5000:
+                break
+            off += len(b)
+        print("BUSINESS_DATASET", rid, meta["title"], "FETCHED=", fetched, "TOTAL=", len(rows))
     except Exception as e:
-        print("DATASET", rid, e)
+        print("DATASET", rid, meta["title"], e)
 
 # 4) Public municipal information in Tel Aviv.
 try:
