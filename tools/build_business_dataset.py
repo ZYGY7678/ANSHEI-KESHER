@@ -402,18 +402,29 @@ overpass = '''[out:json][timeout:300];
 area["ISO3166-1"="IL"][admin_level=2]->.il;
 nwr["name"]["phone"](area.il);
 nwr["name"]["contact:phone"](area.il);
+nwr["name:he"]["phone"](area.il);
+nwr["name:he"]["contact:phone"](area.il);
+nwr["name:en"]["phone"](area.il);
+nwr["name:en"]["contact:phone"](area.il);
 out tags center;'''
 try:
     req = Request("https://overpass-api.de/api/interpreter", data=overpass.encode(),
                   headers={"User-Agent": UA, "Content-Type": "text/plain"})
-    with urlopen(req, timeout=180) as r:
+    with urlopen(req, timeout=240) as r:
         data = json.loads(r.read().decode("utf-8","replace"))
     for e in data.get("elements", []):
         t = e.get("tags", {})
-        if not any(k in t for k in (
-            "shop","office","amenity","craft","tourism","healthcare","leisure",
-            "public_transport","industrial","building","man_made"
-        )):
+        # Keep named public places/services while excluding obvious residential/person nodes.
+        if any(t.get(k) in ("house","apartments","residential","dwelling","home")
+               for k in ("building","place","office")):
+            continue
+        if any(k in t for k in ("contact:person","person","firstname","lastname")):
+            continue
+        if not (t.get("shop") or t.get("office") or t.get("amenity") or t.get("craft") or
+                t.get("tourism") or t.get("healthcare") or t.get("leisure") or
+                t.get("public_transport") or t.get("industrial") or t.get("building") or
+                t.get("man_made") or t.get("brand") or t.get("operator") or
+                t.get("addr:street") or t.get("addr:city")):
             continue
         city = t.get("addr:city") or t.get("addr:town") or t.get("addr:village")
         lat = (e.get("lat") or (e.get("center") or {}).get("lat") or "")
@@ -422,7 +433,7 @@ try:
             city,
             t.get("shop") or t.get("amenity") or t.get("office") or t.get("craft") or
             t.get("tourism") or t.get("healthcare") or "עסק/שירות",
-            t.get("name") or t.get("name:he") or t.get("name:en"),
+            t.get("name") or t.get("name:he") or t.get("name:en") or t.get("brand") or t.get("operator"),
             " ".join(x for x in [t.get("addr:street"), t.get("addr:housenumber")] if x),
             t.get("phone") or t.get("contact:phone"),
             t.get("opening_hours") and "פעיל/מפורסם ב-OSM" or "",
