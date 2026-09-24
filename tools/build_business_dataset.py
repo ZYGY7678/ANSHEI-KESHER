@@ -186,10 +186,10 @@ def import_osm_full_extract():
             def __init__(self):
                 super().__init__()
                 self.count = 0
+                self.pending = []
 
             def _emit(self, obj, lat="", lon=""):
-                nonlocal rows
-                if len(rows) >= 120000:
+                if len(self.pending) + len(rows) >= 120000:
                     return
                 t = tag_dict(obj.tags)
                 name = first_tag(t, ("name","name:he","name:en","brand","operator"))
@@ -238,8 +238,8 @@ def import_osm_full_extract():
                 osm_source = "OpenStreetMap / OsmAnd POI data source"
 
                 # Split multiple public phone values just like the normal add() path.
-                add(city, category, name, address, phone, status, "", lat, lon,
-                    website, hours, osm_source)
+                self.pending.append((city, category, name, address, phone, status, "", lat, lon,
+                                     website, hours, osm_source))
                 self.count += 1
 
             def node(self, n):
@@ -273,8 +273,11 @@ def import_osm_full_extract():
             elif obj.is_relation():
                 h.relation(obj)
 
-        print("OSM_PBF_BUSINESSES_ADDED=", h.count)
-        print("OSM_PBF_TOTAL_ROWS=", len(rows))
+        for item in h.pending:
+            add(*item)
+
+        print("OSM_PBF_BUSINESSES_SCANNED=", h.count)
+        print("OSM_PBF_ROWS_COMMITTED=", len(rows))
     except Exception as e:
         print("OSM_PBF_IMPORT_ERROR=", repr(e))
 
