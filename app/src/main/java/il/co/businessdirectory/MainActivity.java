@@ -206,8 +206,8 @@ public class MainActivity extends Activity {
     }
 
     private void pickCity() {
-        final ArrayList<String> cities = new ArrayList<String>();
-        cities.add("כל היישובים");
+        final ArrayList<String> allCities = new ArrayList<String>();
+        allCities.add("כל היישובים");
         Map<String,Integer> counts = new HashMap<String,Integer>();
 
         for (int i = 0; i < localities.size(); i++) {
@@ -220,72 +220,123 @@ public class MainActivity extends Activity {
         }
 
         ArrayList<String> names = new ArrayList<String>(counts.keySet());
-        Collections.sort(names, new Comparator<String>() {
-            public int compare(String a, String b) { return a.compareToIgnoreCase(b); }
-        });
-        for (String n : names) {
-            cities.add(n + "  (" + formatNumber(counts.get(n)) + ")");
-        }
+        Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
+        for (String n : names) allCities.add(n + "  (" + formatNumber(counts.get(n)) + ")");
+
+        final ArrayList<String> shown = new ArrayList<String>(allCities);
+        final EditText filter = new EditText(this);
+        filter.setHint("חיפוש עיר / יישוב / מועצה");
+        filter.setSingleLine(true);
+        filter.setTextColor(android.graphics.Color.WHITE);
+        filter.setHintTextColor(android.graphics.Color.GRAY);
+        filter.setPadding(18, 10, 18, 10);
+        filter.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+
+        final ListView cityList = new ListView(this);
+        cityList.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+        cityList.setAdapter(new ArrayAdapter<String>(this,
+                android.R.layout.simple_list_item_single_choice, shown));
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(10, 4, 10, 4);
+        box.addView(filter, new LinearLayout.LayoutParams(-1, 54));
+        box.addView(cityList, new LinearLayout.LayoutParams(-1, 0, 1));
 
         final AlertDialog d = new AlertDialog.Builder(this)
-            .setTitle("בחירת עיר / יישוב / מועצה")
-            .setSingleChoiceItems(cities.toArray(new String[cities.size()]),
-                    selectedCity.length() == 0 ? 0 : cityIndex(cities, selectedCity), null)
-            .setNegativeButton("ביטול", null)
-            .create();
+                .setTitle("בחירת עיר / יישוב / מועצה")
+                .setView(box)
+                .setNegativeButton("ביטול", null)
+                .create();
 
-        d.setOnShowListener(new DialogInterface.OnShowListener() {
-            public void onShow(DialogInterface dialog) {
-                d.getListView().setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                    public void onItemClick(AdapterView<?> a, View v, int p, long id) {
-                        String z = cities.get(p);
-                        if (p == 0) selectedCity = "";
-                        else selectedCity = z.substring(0, z.lastIndexOf("  ("));
-                        d.dismiss();
-                        refresh();
-                    }
-                });
-                d.getListView().requestFocus();
+        filter.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            public void onTextChanged(CharSequence s, int a, int b, int c) {
+                String q = clean(s.toString()).toLowerCase();
+                shown.clear();
+                for (String x : allCities) {
+                    if (q.length() == 0 || x.toLowerCase().contains(q)) shown.add(x);
+                }
+                cityList.setAdapter(new ArrayAdapter<String>(MainActivity.this,
+                        android.R.layout.simple_list_item_single_choice, shown));
+                cityList.requestFocus();
+            }
+            public void afterTextChanged(android.text.Editable e) {}
+        });
+
+        cityList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            public void onItemClick(AdapterView<?> a, View v, int p, long id) {
+                String z = shown.get(p);
+                selectedCity = p == 0 && z.equals("כל היישובים") ? "" :
+                        z.substring(0, z.lastIndexOf("  ("));
+                d.dismiss();
+                refresh();
             }
         });
         d.show();
-    }
-
-    private int cityIndex(ArrayList<String> cities, String city) {
-        for (int i = 1; i < cities.size(); i++) {
-            if (cities.get(i).startsWith(city + "  (")) return i;
-        }
-        return 0;
+        cityList.requestFocus();
     }
 
     private void pickCategory() {
-        final ArrayList<String> categories = new ArrayList<String>();
-        categories.add("כל התחומים");
+        final ArrayList<String> allCategories = new ArrayList<String>();
+        allCategories.add("כל התחומים");
         Set<String> set = new HashSet<String>();
         for (Business b : allBusinesses) if (b.category.length() > 0) set.add(b.category);
         ArrayList<String> names = new ArrayList<String>(set);
         Collections.sort(names, String.CASE_INSENSITIVE_ORDER);
-        categories.addAll(names);
+        allCategories.addAll(names);
+
+        final ArrayList<String> shown = new ArrayList<String>(allCategories);
+        final EditText filter = new EditText(this);
+        filter.setHint("חיפוש תחום / קטגוריה");
+        filter.setSingleLine(true);
+        filter.setTextColor(android.graphics.Color.WHITE);
+        filter.setHintTextColor(android.graphics.Color.GRAY);
+        filter.setPadding(18, 10, 18, 10);
+        filter.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
+
+        final ListView categoryList = new ListView(this);
+        categoryList.setChoiceMode(ListView.CHOICE_MODE_SINGLE);
+        categoryList.setAdapter(new ArrayAdapter<String>(this,
+                android.R.layout.simple_list_item_single_choice, shown));
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(10, 4, 10, 4);
+        box.addView(filter, new LinearLayout.LayoutParams(-1, 54));
+        box.addView(categoryList, new LinearLayout.LayoutParams(-1, 0, 1));
 
         final AlertDialog d = new AlertDialog.Builder(this)
-            .setTitle("בחירת תחום")
-            .setSingleChoiceItems(categories.toArray(new String[categories.size()]),
-                    selectedCategory.length() == 0 ? 0 : categories.indexOf(selectedCategory), null)
-            .setNegativeButton("ביטול", null)
-            .create();
-        d.setOnShowListener(new DialogInterface.OnShowListener() {
-            public void onShow(DialogInterface dialog) {
-                d.getListView().setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                    public void onItemClick(AdapterView<?> a, View v, int p, long id) {
-                        selectedCategory = p == 0 ? "" : categories.get(p);
-                        d.dismiss();
-                        refresh();
-                    }
-                });
-                d.getListView().requestFocus();
+                .setTitle("בחירת תחום")
+                .setView(box)
+                .setNegativeButton("ביטול", null)
+                .create();
+
+        filter.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
+            public void onTextChanged(CharSequence s, int a, int b, int c) {
+                String q = clean(s.toString()).toLowerCase();
+                shown.clear();
+                for (String x : allCategories) {
+                    if (q.length() == 0 || x.toLowerCase().contains(q)) shown.add(x);
+                }
+                categoryList.setAdapter(new ArrayAdapter<String>(MainActivity.this,
+                        android.R.layout.simple_list_item_single_choice, shown));
+                categoryList.requestFocus();
+            }
+            public void afterTextChanged(android.text.Editable e) {}
+        });
+
+        categoryList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            public void onItemClick(AdapterView<?> a, View v, int p, long id) {
+                selectedCategory = (p == 0 && shown.get(p).equals("כל התחומים"))
+                        ? "" : shown.get(p);
+                d.dismiss();
+                refresh();
             }
         });
         d.show();
+        categoryList.requestFocus();
     }
 
     private void showBusinessMenu(final Business b) {
