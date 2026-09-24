@@ -136,147 +136,132 @@ for r in fetch_datastore("3f06e2f2-e2ad-41ac-9665-37d0625537f2"):
 
 
 # 2b) Full regional OpenStreetMap extract, matching the POI model used by OsmAnd.
-# OsmAnd's maps are built from OpenStreetMap data; the repository contains the map/POI
-# processing code, while the actual geographic objects are supplied by OSM extracts.
-# We use the current Geofabrik Israel/Palestine PBF and read it directly with pyosmium,
-# keeping named public/business POIs that expose a public phone/contact number.
+# OsmAnd processes OpenStreetMap POIs. The actual geographic data is taken from the
+# regional OSM PBF extract, filtered to Israel and exported to GeoJSON with osmium-tool.
 def import_osm_full_extract():
     try:
+        import subprocess
         import urllib.request
-        try:
-            import osmium
-        except Exception as e:
-            print("OSM_PBF_IMPORT", "pyosmium unavailable:", e)
-            return
 
         pbf_url = "https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf"
-        pbf_path = os.path.join("build", "osm", "israel-and-palestine-latest.osm.pbf")
-        os.makedirs(os.path.dirname(pbf_path), exist_ok=True)
+        work = os.path.join("build", "osm")
+        os.makedirs(work, exist_ok=True)
+        pbf_path = os.path.join(work, "israel-and-palestine-latest.osm.pbf")
+        filtered_path = os.path.join(work, "israel-phone.osm.pbf")
+        geojson_path = os.path.join(work, "israel-phone.geojson")
 
-        # Download once per CI workspace; no permanent copy is committed to the repo.
         if not os.path.exists(pbf_path) or os.path.getsize(pbf_path) < 1000000:
             print("OSM_PBF_DOWNLOAD=", pbf_url)
             urllib.request.urlretrieve(pbf_url, pbf_path)
         print("OSM_PBF_SIZE=", os.path.getsize(pbf_path))
 
-        category_keys = (
-            "shop","amenity","office","craft","tourism","healthcare","leisure","education",
-            "industrial","public_transport","government","club","sport","emergency",
-            "railway","aeroway","attraction","man_made","operator","brand"
-        )
-        residential_values = {
-            "house","detached","semidetached_house","terrace","apartments",
-            "residential","garage","garages","hut","farm","barn","shed"
-        }
+        phone_tags = [
+            "nwr/phone",
+            "nwr/contact:phone",
+            "nwr/contact:mobile",
+            "nwr/contact:telephone",
+            "nwr/mobile",
+            "nwr/telephone"
+        ]
 
-        def tag_dict(tags):
-            try:
-                return {str(k): str(v) for k, v in tags}
-            except Exception:
-                return dict(tags)
+        # Israel bounding box: west,south,east,north.
+        subprocess.run([
+            "osmium", "tags-filter", pbf_path,
+            "--bbox", "34.2,29.4,35.9,33.4",
+            *phone_tags, "-o", filtered_path, "--overwrite"
+        ], check=True)
 
-        def first_tag(tags, keys):
-            for k in keys:
-                v = tags.get(k)
-                if v:
-                    return str(v).strip()
-            return ""
+        subprocess.run([
+            "osmium", "export", filtered_path,
+            "--output-format", "geojson",
+            "-o", geojson_path, "--overwrite"
+        ], check=True)
 
-        class FullOSMHandler(osmium.SimpleHandler):
-            def __init__(self):
-                super().__init__()
-                self.count = 0
-                self.pending = []
+        with open(geojson_path, "r", encoding="utf-8") as fh:
+            fc = json.load(fh)
 
-            def _emit(self, obj, lat="", lon=""):
-                if len(self.pending) + len(rows) >= 120000:
-                    return
-                t = tag_dict(obj.tags)
-                name = first_tag(t, ("name","name:he","name:en","brand","operator"))
-                if not name:
-                    return
+        features = fc.get("features", [])
+        scanned = 0
+        for feat in features:
+            if len(rows) >= 120000:
+                break
+            scanned += 1
+            props = feat.get("properties") or {}
 
-                phone = first_tag(t, (
-                    "phone","contact:phone","contact:mobile","contact:telephone",
-                    "mobile","telephone"
-                ))
-                if not phone:
-                    return
+            def pt(keys):
+                for k in keys:
+                    v = props.get(k)
+                    if v not in (None, ""):
+                        return clean(v)
+                return ""
 
-                # Keep recognizable public/business/services; drop obvious residences
-                # and person-contact records.
-                if any(k in t for k in ("contact:person","person","firstname","lastname")):
-                    return
-                if t.get("office") == "home" or t.get("building") in residential_values:
-                    return
-                if not any(t.get(k) for k in category_keys):
-                    # Addressed named objects can still be service locations.
-                    if not (t.get("addr:street") or t.get("addr:city") or
-                            t.get("addr:postcode") or t.get("operator")):
-                        return
+            name = pt(["name", "name:he", "name:en", "brand", "operator"])
+            if not name:
+                continue
 
-                city = first_tag(t, (
-                    "addr:city","addr:town","addr:village","addr:municipality",
-                    "addr:suburb","is_in:city","is_in:town","is_in"
-                ))
-                address = " ".join(
-                    x for x in (
-                        first_tag(t, ("addr:street","addr:place")),
-                        first_tag(t, ("addr:housenumber","addr:housename")),
-                        first_tag(t, ("addr:postcode",))
-                    ) if x
-                )
-                category = first_tag(t, (
-                    "shop","amenity","office","craft","tourism","healthcare",
-                    "leisure","education","industrial","government","club",
-                    "sport","emergency","railway","aeroway","attraction",
-                    "man_made"
-                )) or "עסק/שירות"
-                hours = first_tag(t, ("opening_hours","opening_hours:covid19"))
-                website = first_tag(t, ("website","contact:website","url"))
-                status = "פעיל/מפורסם ב-OpenStreetMap" if hours else ""
-                osm_source = "OpenStreetMap / OsmAnd POI data source"
+            phone = pt([
+                "phone", "contact:phone", "contact:mobile",
+                "contact:telephone", "mobile", "telephone"
+            ])
+            if not phone:
+                continue
 
-                # Split multiple public phone values just like the normal add() path.
-                self.pending.append((city, category, name, address, phone, status, "", lat, lon,
-                                     website, hours, osm_source))
-                self.count += 1
+            # Avoid obvious personal/residential records.
+            if any(pt([k]) for k in ["contact:person", "person", "firstname", "lastname"]):
+                continue
+            if pt(["office"]) == "home":
+                continue
+            if not any(pt([k]) for k in [
+                "shop","amenity","office","craft","tourism","healthcare","leisure",
+                "education","industrial","public_transport","government","club",
+                "sport","emergency","railway","aeroway","attraction","man_made",
+                "operator","brand"
+            ]):
+                continue
 
-            def node(self, n):
-                if n.location.valid():
-                    self._emit(n, str(n.location.lat), str(n.location.lon))
-                else:
-                    self._emit(n)
+            city = pt([
+                "addr:city","addr:town","addr:village","addr:municipality",
+                "addr:suburb","is_in:city","is_in:town","is_in"
+            ])
+            address = " ".join(
+                x for x in [
+                    pt(["addr:street","addr:place"]),
+                    pt(["addr:housenumber","addr:housename"]),
+                    pt(["addr:postcode"])
+                ] if x
+            )
+            category = pt([
+                "shop","amenity","office","craft","tourism","healthcare",
+                "leisure","education","industrial","government","club",
+                "sport","emergency","railway","aeroway","attraction","man_made"
+            ]) or "עסק/שירות"
+            website = pt(["website","contact:website","url"])
+            hours = pt(["opening_hours","opening_hours:covid19"])
+            status = "פעיל/מפורסם ב-OpenStreetMap" if hours else ""
 
-            def way(self, w):
-                lat = lon = ""
+            lat = lon = ""
+            geom = feat.get("geometry") or {}
+            coords = geom.get("coordinates")
+            if geom.get("type") == "Point" and isinstance(coords, list) and len(coords) >= 2:
+                lon, lat = str(coords[0]), str(coords[1])
+            else:
                 pts = []
-                for nd in w.nodes:
-                    if nd.location.valid():
-                        pts.append((float(nd.location.lat), float(nd.location.lon)))
+                def collect(x):
+                    if isinstance(x, list):
+                        if len(x) >= 2 and isinstance(x[0], (int, float)) and isinstance(x[1], (int, float)):
+                            pts.append((float(x[0]), float(x[1])))
+                        else:
+                            for y in x:
+                                collect(y)
+                collect(coords)
                 if pts:
-                    # Lightweight centroid/mean, sufficient for a directory map jump.
-                    lat = str(sum(p[0] for p in pts) / len(pts))
-                    lon = str(sum(p[1] for p in pts) / len(pts))
-                self._emit(w, lat, lon)
+                    lon = str(sum(p[0] for p in pts) / len(pts))
+                    lat = str(sum(p[1] for p in pts) / len(pts))
 
-            def relation(self, r):
-                self._emit(r)
+            add(city, category, name, address, phone, status, "", lat, lon,
+                website, hours, "OpenStreetMap / OsmAnd POI data source")
 
-        h = FullOSMHandler()
-        # with_locations() lets way geometries expose their node coordinates.
-        for obj in osmium.FileProcessor(pbf_path, osmium.osm.NODE | osmium.osm.WAY | osmium.osm.RELATION).with_locations():
-            if obj.is_node():
-                h.node(obj)
-            elif obj.is_way():
-                h.way(obj)
-            elif obj.is_relation():
-                h.relation(obj)
-
-        for item in h.pending:
-            add(*item)
-
-        print("OSM_PBF_BUSINESSES_SCANNED=", h.count)
+        print("OSM_PBF_FEATURES_SCANNED=", scanned)
         print("OSM_PBF_ROWS_COMMITTED=", len(rows))
     except Exception as e:
         print("OSM_PBF_IMPORT_ERROR=", repr(e))
