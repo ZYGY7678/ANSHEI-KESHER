@@ -15,8 +15,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Install Python OSM parser
-        run: python3 -m pip install --user --disable-pip-version-check pyosmium
+      - name: Install OSM command line tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y osmium-tool
       - name: Install Android SDK packages
         run: |
           SDKMANAGER=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
