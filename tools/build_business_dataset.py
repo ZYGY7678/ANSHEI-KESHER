@@ -134,6 +134,153 @@ for r in fetch_datastore("3f06e2f2-e2ad-41ac-9665-37d0625537f2"):
     add(r.get("ezor"), "בית ספר לנהיגה", r.get("shem_beit_sefer"),
         r.get("ktovet"), r.get("telefon"), source="משרד התחבורה")
 
+
+# 2b) Full regional OpenStreetMap extract, matching the POI model used by OsmAnd.
+# OsmAnd's maps are built from OpenStreetMap data; the repository contains the map/POI
+# processing code, while the actual geographic objects are supplied by OSM extracts.
+# We use the current Geofabrik Israel/Palestine PBF and read it directly with pyosmium,
+# keeping named public/business POIs that expose a public phone/contact number.
+def import_osm_full_extract():
+    try:
+        import urllib.request
+        try:
+            import osmium
+        except Exception as e:
+            print("OSM_PBF_IMPORT", "pyosmium unavailable:", e)
+            return
+
+        pbf_url = "https://download.geofabrik.de/asia/israel-and-palestine-latest.osm.pbf"
+        pbf_path = os.path.join("build", "osm", "israel-and-palestine-latest.osm.pbf")
+        os.makedirs(os.path.dirname(pbf_path), exist_ok=True)
+
+        # Download once per CI workspace; no permanent copy is committed to the repo.
+        if not os.path.exists(pbf_path) or os.path.getsize(pbf_path) < 1000000:
+            print("OSM_PBF_DOWNLOAD=", pbf_url)
+            urllib.request.urlretrieve(pbf_url, pbf_path)
+        print("OSM_PBF_SIZE=", os.path.getsize(pbf_path))
+
+        category_keys = (
+            "shop","amenity","office","craft","tourism","healthcare","leisure","education",
+            "industrial","public_transport","government","club","sport","emergency",
+            "railway","aeroway","attraction","man_made","operator","brand"
+        )
+        residential_values = {
+            "house","detached","semidetached_house","terrace","apartments",
+            "residential","garage","garages","hut","farm","barn","shed"
+        }
+
+        def tag_dict(tags):
+            try:
+                return {str(k): str(v) for k, v in tags}
+            except Exception:
+                return dict(tags)
+
+        def first_tag(tags, keys):
+            for k in keys:
+                v = tags.get(k)
+                if v:
+                    return str(v).strip()
+            return ""
+
+        class FullOSMHandler(osmium.SimpleHandler):
+            def __init__(self):
+                super().__init__()
+                self.count = 0
+
+            def _emit(self, obj, lat="", lon=""):
+                nonlocal rows
+                if len(rows) >= 120000:
+                    return
+                t = tag_dict(obj.tags)
+                name = first_tag(t, ("name","name:he","name:en","brand","operator"))
+                if not name:
+                    return
+
+                phone = first_tag(t, (
+                    "phone","contact:phone","contact:mobile","contact:telephone",
+                    "mobile","telephone"
+                ))
+                if not phone:
+                    return
+
+                # Keep recognizable public/business/services; drop obvious residences
+                # and person-contact records.
+                if any(k in t for k in ("contact:person","person","firstname","lastname")):
+                    return
+                if t.get("office") == "home" or t.get("building") in residential_values:
+                    return
+                if not any(t.get(k) for k in category_keys):
+                    # Addressed named objects can still be service locations.
+                    if not (t.get("addr:street") or t.get("addr:city") or
+                            t.get("addr:postcode") or t.get("operator")):
+                        return
+
+                city = first_tag(t, (
+                    "addr:city","addr:town","addr:village","addr:municipality",
+                    "addr:suburb","is_in:city","is_in:town","is_in"
+                ))
+                address = " ".join(
+                    x for x in (
+                        first_tag(t, ("addr:street","addr:place")),
+                        first_tag(t, ("addr:housenumber","addr:housename")),
+                        first_tag(t, ("addr:postcode",))
+                    ) if x
+                )
+                category = first_tag(t, (
+                    "shop","amenity","office","craft","tourism","healthcare",
+                    "leisure","education","industrial","government","club",
+                    "sport","emergency","railway","aeroway","attraction",
+                    "man_made"
+                )) or "עסק/שירות"
+                hours = first_tag(t, ("opening_hours","opening_hours:covid19"))
+                website = first_tag(t, ("website","contact:website","url"))
+                status = "פעיל/מפורסם ב-OpenStreetMap" if hours else ""
+                osm_source = "OpenStreetMap / OsmAnd POI data source"
+
+                # Split multiple public phone values just like the normal add() path.
+                add(city, category, name, address, phone, status, "", lat, lon,
+                    website, hours, osm_source)
+                self.count += 1
+
+            def node(self, n):
+                if n.location.valid():
+                    self._emit(n, str(n.location.lat), str(n.location.lon))
+                else:
+                    self._emit(n)
+
+            def way(self, w):
+                lat = lon = ""
+                pts = []
+                for nd in w.nodes:
+                    if nd.location.valid():
+                        pts.append((float(nd.location.lat), float(nd.location.lon)))
+                if pts:
+                    # Lightweight centroid/mean, sufficient for a directory map jump.
+                    lat = str(sum(p[0] for p in pts) / len(pts))
+                    lon = str(sum(p[1] for p in pts) / len(pts))
+                self._emit(w, lat, lon)
+
+            def relation(self, r):
+                self._emit(r)
+
+        h = FullOSMHandler()
+        # with_locations() lets way geometries expose their node coordinates.
+        for obj in osmium.FileProcessor(pbf_path, osmium.osm.NODE | osmium.osm.WAY | osmium.osm.RELATION).with_locations():
+            if obj.is_node():
+                h.node(obj)
+            elif obj.is_way():
+                h.way(obj)
+            elif obj.is_relation():
+                h.relation(obj)
+
+        print("OSM_PBF_BUSINESSES_ADDED=", h.count)
+        print("OSM_PBF_TOTAL_ROWS=", len(rows))
+    except Exception as e:
+        print("OSM_PBF_IMPORT_ERROR=", repr(e))
+
+print("OSM_PBF_IMPORT_START rows=", len(rows))
+import_osm_full_extract()
+
 # 3) Exhaustive data.gov.il catalogue sweep.
 # CKAN package_search defaults to *:* when q is omitted, and allows up to 1000 datasets/page.
 # We inspect the full public catalogue, then fetch only DataStore resources containing a
